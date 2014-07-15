@@ -4,9 +4,9 @@
 
 /*
 Package relax is a framework of pluggable components to build RESTful API's. It
-provides a thin layer over net/http to serve resources, without imposing a rigid
-structure. It is meant to be used along http.ServeMux, but will work as a replacement
-as it implements http.Handler.
+provides a thin layer over ``net/http`` to serve resources, without imposing a rigid
+structure. It is meant to be used along ``http.ServeMux``, but will work as a replacement
+as it implements ``http.Handler``.
 
 The framework is divided into components: Encoding, Filters, Routing, Logging and Resources.
 These are the parts of a complete REST Service. All the components are designed to be
@@ -45,7 +45,7 @@ This allows some granularity to filters.
 Relax comes with filters that provide basic functionality needed by most REST API's.
 Some included filters: CORS, method override, security, basic auth and content negotiation.
 Adding filters is a matter of creating new objects that implement the Filter interface.
-The position of the next() handler function is important to the effect of the particular
+The position of the ``next()`` handler function is important to the effect of the particular
 filter execution.
 
 Routing
@@ -133,8 +133,7 @@ for that resource happen.
 
 	loc := &Locations{} // "locations" is our resource namespace.
 
-	// CRUD will create routes to the handlers required by Resourcer using
-	// "{geo:point}" as PSE.
+	// CRUD will create routes to the handlers required by Resourcer using "{geo:point}" as PSE.
 	resource := service.Resource(loc).CRUD("geo:point")
 
 */
