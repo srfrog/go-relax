@@ -2,7 +2,7 @@
 
 *Build fast and efficient RESTful APIs in [Go](http://golang.org)*
 
-**Go-Relax** is a framework of pluggable components to build RESTful API's. It provides a thin layer over net/http to serve resources, without imposing a rigid structure. It is meant to be used along http.ServeMux, but will work as a replacement as it implements http.Handler.
+**Go-Relax** is a framework of pluggable components to build RESTful API's. It provides a thin layer over ``net/http`` to serve resources, without imposing a rigid structure. It is meant to be used along ``http.ServeMux``, but will work as a replacement as it implements ``http.Handler``.
 
 ## Features
 
