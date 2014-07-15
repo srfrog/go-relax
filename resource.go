@@ -126,15 +126,13 @@ func (self *Resource) PUT(path string, h HandlerFunc, filters ...Filter) *Resour
 // itemid is a route patch matching expression (PSE) without {}'s.
 // It returns the resource itself for chaining.
 //
-// For example, given the Resourcer object:
-//		type Users struct{}
+// For example, given the Resourcer object "users", CRUD with itemid "uint:id" will add the following routes:
 //
-//	then, CRUD("uint:id") adds the following routes:
-//		GET /api/users						=> users.List()
-//		GET /api/users/{uint:id}		=> users.Read()
-//		POST /api/users					=> users.Create()
-//		PUT /api/users/{uint:id}		=> users.Update()
-//		DELETE /api/users/{uint:id}	=> users.Delete()
+//		GET /api/users                => use handler users.List()
+//		GET /api/users/{uint:id}      => use handler users.Read()
+//		POST /api/users               => use handler users.Create()
+//		PUT /api/users/{uint:id}      => use handler users.Update()
+//		DELETE /api/users/{uint:id}   => use handler users.Delete()
 func (self *Resource) CRUD(itemid string) *Resource {
 	if itemid == "" {
 		// detect a resource item type
