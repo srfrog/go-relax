@@ -5,8 +5,7 @@
 package relax
 
 import (
-	// "github.com/codehack/go-environ"
-	"../go-environ"
+	"github.com/codehack/go-environ"
 	"io"
 	"net/http"
 	"net/url"
