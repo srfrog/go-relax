@@ -8,7 +8,7 @@
 
 - Helps build API's that follow the REST concept using ROA architecture.
 - It follows REST best practices, with inspiration from other REST API's like Heroku and GitHub's.
-- Works fine along with http.ServeMux or independently as http.Handler.
+- Works fine along with ``http.ServeMux`` or independently as ``http.Handler``.
 - Uses JSON encoding by default, enforcing content-negotiation per request.
 - Default routing engine uses trie with regexp matching for speed and flexibility.
 - Includes filters used by most API's. aka "Batteries included"
@@ -31,7 +31,7 @@ The full code documentation is located at GoDoc:
 
 [http://godoc.org/github.com/codehack/go-relax](http://godoc.org/github.com/codehack/go-relax)
 
-**Go-Environ** is Copyright (c) 2014 [Codehack](http://codehack.com).
+**Go-Relax** is Copyright (c) 2014 [Codehack](http://codehack.com).
 Published under [MIT License](https://raw.githubusercontent.com/codehack/go-relax/master/LICENSE)
 
 
