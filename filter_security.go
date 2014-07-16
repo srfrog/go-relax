@@ -17,11 +17,11 @@ const (
 	securityPragma                        = "no-cache"
 )
 
-// SecurityFilter is a Filter that provides some security options and checks.
+// FilterSecurity is a Filter that provides some security options and checks.
 // Most of the options are HTTP headers sent back so that web clients can
 // adjust their configuration.
 // See https://www.owasp.org/index.php/List_of_useful_HTTP_headers
-type SecurityFilter struct {
+type FilterSecurity struct {
 	UACheckDisable bool
 	UACheckErrMsg  string
 	XFrameDisable  bool
@@ -39,9 +39,10 @@ type SecurityFilter struct {
 	PragmaOptions  string
 }
 
-// BUG(TODO): SecurityFilter need more docs about each option.
+// BUG(TODO): FilterSecurity need more docs about each option.
 
-func (self *SecurityFilter) Run(next HandlerFunc) HandlerFunc {
+// FilterSecurity passes down no Info.
+func (self *FilterSecurity) Run(next HandlerFunc) HandlerFunc {
 	if self.UACheckErrMsg == "" {
 		self.UACheckErrMsg = "Request forbidden by security rules.\n" +
 			"Please make sure your request has a User-Agent header."

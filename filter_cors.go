@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-const defaultMaxAge = 86400 // 24 hours
+const defaultCORSMaxAge = 86400 // 24 hours
 
 var (
 	// simpleMethods and simpleHeaders per the CORS recommendation - http://www.w3.org/TR/cors/#terminology
@@ -33,9 +33,9 @@ var (
 	allowOriginRegexp = []*regexp.Regexp{}
 )
 
-// CORSFilter implements the Cross-Origin Resource Sharing (CORS) recommendation, as
+// FilterCORS implements the Cross-Origin Resource Sharing (CORS) recommendation, as
 // described at http://www.w3.org/TR/cors/ (W3C).
-type CORSFilter struct {
+type FilterCORS struct {
 	// AllowOrigin is the list of URI patterns that are allowed to use the resource.
 	// The patterns consist of text with zero or more wildcards '*' '?' '+'.
 	//
@@ -102,7 +102,7 @@ type CORSFilter struct {
 	Strict bool
 }
 
-func (self *CORSFilter) corsHeaders(origin string) http.Header {
+func (self *FilterCORS) corsHeaders(origin string) http.Header {
 	headers := make(http.Header, 0)
 	if self.AllowCredentials {
 		headers.Set("Access-Control-Allow-Origin", origin)
@@ -121,7 +121,7 @@ func (self *CORSFilter) corsHeaders(origin string) http.Header {
 	return headers
 }
 
-func (self *CORSFilter) handlePreflightRequest(origin, rmethod, rheaders string) (http.Header, error) {
+func (self *FilterCORS) handlePreflightRequest(origin, rmethod, rheaders string) (http.Header, error) {
 	if !strarr.Contains(simpleMethods, rmethod) && !strarr.Contains(self.AllowMethods, rmethod) {
 		return nil, &StatusError{http.StatusMethodNotAllowed, "Invalid method in preflight", nil}
 	}
@@ -136,7 +136,7 @@ func (self *CORSFilter) handlePreflightRequest(origin, rmethod, rheaders string)
 	if self.MaxAge > 0 {
 		headers.Set("Access-Control-Max-Age", strconv.Itoa(self.MaxAge))
 	}
-	// BUG(TODO): CORSFilter needs preflight step 9 & 10 checks (too strict?)
+	// BUG(TODO): FilterCORS needs preflight step 9 & 10 checks (too strict?)
 	if self.AllowMethods != nil {
 		headers.Set("Access-Control-Allow-Methods", strings.Join(self.AllowMethods, ", "))
 	}
@@ -148,7 +148,7 @@ func (self *CORSFilter) handlePreflightRequest(origin, rmethod, rheaders string)
 	return headers, nil
 }
 
-func (self *CORSFilter) handleSimpleRequest(origin string) http.Header {
+func (self *FilterCORS) handleSimpleRequest(origin string) http.Header {
 	headers := self.corsHeaders(origin)
 	if len(self.ExposeHeaders) > 0 {
 		headers.Set("Access-Control-Expose-Headers", strings.Join(self.ExposeHeaders, ", "))
@@ -156,7 +156,7 @@ func (self *CORSFilter) handleSimpleRequest(origin string) http.Header {
 	return headers
 }
 
-func (self *CORSFilter) isOriginAllowed(origin string) bool {
+func (self *FilterCORS) isOriginAllowed(origin string) bool {
 	for _, re := range allowOriginRegexp {
 		if re.MatchString(origin) {
 			return true
@@ -165,7 +165,10 @@ func (self *CORSFilter) isOriginAllowed(origin string) bool {
 	return false
 }
 
-func (self *CORSFilter) Run(next HandlerFunc) HandlerFunc {
+// Filter info passed down from FilterCORS:
+//		re.Info.Get("cors.request") // boolean, whether or not this was a CORS request.
+//		re.Info.Get("cors.origin") // Origin of the request, if CORS
+func (self *FilterCORS) Run(next HandlerFunc) HandlerFunc {
 	if self.AllowMethods == nil {
 		self.AllowMethods = allowMethodsDefault
 	}
@@ -176,7 +179,7 @@ func (self *CORSFilter) Run(next HandlerFunc) HandlerFunc {
 		self.ExposeHeaders = exposeHeadersDefault
 	}
 	if self.MaxAge == 0 {
-		self.MaxAge = defaultMaxAge
+		self.MaxAge = defaultCORSMaxAge
 	}
 	self.AllowMethods = strarr.Map(strings.ToUpper, self.AllowMethods)
 	self.AllowHeaders = strarr.Map(http.CanonicalHeaderKey, self.AllowHeaders)

@@ -59,9 +59,9 @@ func (self *Resource) getPath(sub string) string {
 // not yet implemented.
 func (self *Resource) DefaultHandler(rw ResponseWriter, re *Request) {
 	// BUG(TODO): DefaultHandler must add "Allow" header with methods which are allowed.
-	rw.Error(http.StatusNotImplemented, "Resource path not handled.")
+	rw.Error(http.StatusNotImplemented, "Resource route not handled.")
 	// XXX: hmm... blame the client or the service?
-	// rw.Error(http.StatusMethodNotAllowed, "resource path not handled.")
+	// rw.Error(http.StatusMethodNotAllowed, "Resource route not handled.")
 }
 
 // Route adds a resource route (method + path) and its handler to the router. It returns
@@ -123,32 +123,34 @@ func (self *Resource) PUT(path string, h HandlerFunc, filters ...Filter) *Resour
 }
 
 // CRUD creates Create/Read/Update/Delete routes using the handlers in Resourcer.
-// itemid is a route patch matching expression (PSE) without {}'s.
+// pse is a route path segment expression (PSE).
 // It returns the resource itself for chaining.
 //
-// For example, given the Resourcer object "users", CRUD with itemid "uint:id" will add the following routes:
+// For example, given the Resourcer object "users", CRUD with pse "{uint:id}" will add the following routes:
 //
 //		GET /api/users                => use handler users.List()
 //		GET /api/users/{uint:id}      => use handler users.Read()
 //		POST /api/users               => use handler users.Create()
+//		PUT /api/users                => potentially dangerous, uses Resource.DefaultHandler
 //		PUT /api/users/{uint:id}      => use handler users.Update()
+//		DELETE /api/users             => potentially dangerous, uses Resource.DefaultHandler
 //		DELETE /api/users/{uint:id}   => use handler users.Delete()
-func (self *Resource) CRUD(itemid string) *Resource {
-	if itemid == "" {
-		// detect a resource item type
-		itemid = strings.TrimRight(self.name, "s")
-		if itemid == "" {
-			itemid = "itemid" // give up
+func (self *Resource) CRUD(pse string) *Resource {
+	if pse == "" {
+		// use resource collection name
+		pse = "{" + strings.TrimRight(self.name, "s") + "}"
+		if pse == "{}" {
+			pse = "{item}" // give up
 		}
 	}
 
 	self.Route("GET", "", (self.collection).(Resourcer).List)
-	self.Route("GET", "{"+itemid+"}", (self.collection).(Resourcer).Read)
+	self.Route("GET", pse, (self.collection).(Resourcer).Read)
 	self.Route("POST", "", (self.collection).(Resourcer).Create)
-	// self.Route("PUT", "", self.DefaultHandler)
-	self.Route("PUT", "{"+itemid+"}", (self.collection).(Resourcer).Update)
-	// self.Route("DELETE", "", self.DefaultHandler)
-	self.Route("DELETE", "{"+itemid+"}", (self.collection).(Resourcer).Delete)
+	self.Route("PUT", "", self.DefaultHandler)
+	self.Route("PUT", pse, (self.collection).(Resourcer).Update)
+	self.Route("DELETE", "", self.DefaultHandler)
+	self.Route("DELETE", pse, (self.collection).(Resourcer).Delete)
 	// self.Route("OPTIONS", "", self.DefaultHandler)
 
 	return self

@@ -10,7 +10,7 @@ package relax
 type HandlerFunc func(ResponseWriter, *Request)
 
 // All filters must implement the Filter interface.
-// Filter functions are inter-connected functions that are executed in FIFO
+// Filter functions are inter-connected functions that are executed in FILO
 // order. They are linked together via closures.
 type Filter interface {
 	// Run executes the current filter event in a chain.

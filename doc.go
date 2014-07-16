@@ -31,12 +31,19 @@ preferred language notation in ISO format, en_US, for example. version and lang 
 optional but encoding-type is not. If the Accept header is not sent, then encoding
 is assumed to be satisfied by the encoder's format, for example, "application/json".
 
+Info passed down from content negotiation with the Request object:
+
+	re.Info.Get("content.encoding") // MIME type used for encoding. e.g., "application/json"
+	re.Info.Get("content.version") // requested version, or "current"
+	re.Info.Get("content.language") // requested language, or "en_US"
+
+
 Filters
 
 Relax favors the use of filters over middleware to pre and post-process all requests.
-Filters are function closures that are chained in FIFO order. At any time, a filter
-can stop a request by returning before the next chained filter is called. The final
-link is to the resource handler.
+Filters are function closures that are chained in FILO (First-In Last-Out) order.
+At any time, a filter can stop a request by returning before the next chained filter
+is called. The final link points to the resource handler.
 
 Filters are run at different times during a request, and in order: Service, Resource and, Route.
 Service filters are run before resource filters, and resource filters before route filters.
@@ -134,10 +141,10 @@ for that resource happen.
 	loc := &Locations{} // "locations" is our resource namespace.
 
 	// CRUD will create routes to the handlers required by Resourcer using "{geo:point}" as PSE.
-	resource := service.Resource(loc).CRUD("geo:point")
+	resource := service.Resource(loc).CRUD("{geo:point}")
 
 */
 package relax
 
 // Version is the version of this package.
-const Version = "0.1.0"
+const Version = "0.1.1"

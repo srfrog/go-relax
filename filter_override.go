@@ -8,15 +8,10 @@ import (
 	"net/http"
 )
 
-const (
-	headerXHTTPMethodOverride = "X-HTTP-Method-Override"
-	queryMethodOverride       = "_method"
-)
-
 var (
-	// OverrideFilterMethods specifies the methods can be overriden.
-	// Format is OverrideFilterMethods[{method}] = {override}
-	OverrideFilterMethods = map[string]string{
+	// FilterOverrideMethods specifies the methods can be overriden.
+	// Format is FilterOverrideMethods["method"] = "override"
+	FilterOverrideMethods = map[string]string{
 		"DELETE":  "POST",
 		"OPTIONS": "GET",
 		"PATCH":   "POST",
@@ -24,10 +19,10 @@ var (
 	}
 )
 
-// OverrideFilter changes the Request.Method if the client specifies
+// FilterOverride changes the Request.Method if the client specifies
 // override via HTTP header or query. This allows clients with limited HTTP
 // verbs to send REST requests through GET/POST.
-type OverrideFilter struct {
+type FilterOverride struct {
 	// Header expected for HTTP Method override
 	Header string
 
@@ -35,12 +30,14 @@ type OverrideFilter struct {
 	QueryVar string
 }
 
-func (self *OverrideFilter) Run(next HandlerFunc) HandlerFunc {
+// Filter info passed down from FilterOverride:
+//		re.Info.Get("override.method") // method replaced. e.g., "PATCH"
+func (self *FilterOverride) Run(next HandlerFunc) HandlerFunc {
 	if self.Header == "" {
-		self.Header = headerXHTTPMethodOverride
+		self.Header = "X-HTTP-Method-Override"
 	}
 	if self.QueryVar == "" {
-		self.QueryVar = queryMethodOverride
+		self.QueryVar = "_method"
 	}
 
 	return func(rw ResponseWriter, re *Request) {
@@ -49,7 +46,7 @@ func (self *OverrideFilter) Run(next HandlerFunc) HandlerFunc {
 		}
 		if mo := re.Header.Get(self.Header); mo != "" {
 			if mo != re.Method {
-				override, ok := OverrideFilterMethods[mo]
+				override, ok := FilterOverrideMethods[mo]
 				if !ok {
 					rw.Error(http.StatusMethodNotAllowed, mo+" method is not overridable.")
 					return

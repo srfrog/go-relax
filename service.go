@@ -118,6 +118,13 @@ func (self *Service) dispatch(rw ResponseWriter, re *Request) {
 
 // Handler is a function that returns the parameters needed by http.Handle
 // to handle a path. This allows REST services to work along http.ServeMux.
+// It returns the path of the service and the context handler. The context
+// handler creates the managed request and response.
+//
+// Info passed down from context:
+//		re.Info.Get("context.start_time") // Unix timestamp when request started
+//		re.Info.Get("context.client_addr) // IP address of request (best guess).
+//		re.Info.Get("context.request_id") // Unique or user-supplied request ID.
 func (self *Service) Handler() (string, http.Handler) {
 	handler := self.dispatch
 	for i := len(self.filters) - 1; i >= 0; i-- {
@@ -165,8 +172,6 @@ func (self *Service) Filter(filter Filter) *Service {
 // If an existing path is specified, the last path is used.
 // filters is an optional value that contains a list of Filter objects that
 // run at the Service-level; which will run for all requests.
-// The contentFilter, which provides content-negotiation, is the only default
-// service-level filter.
 // Returns the new service created.
 func NewService(path string, filters ...Filter) *Service {
 	// the service path must end (and begin) with "/", this way ServeMux can setup a redirect for the non-absolute path.
@@ -181,10 +186,11 @@ func NewService(path string, filters ...Filter) *Service {
 		filters: make([]Filter, 0),
 	}
 
-	// setup default filters.
+	// The contentFilter, which provides content-negotiation, is the only default
+	// service-level filter.
 	svc.filters = append(svc.filters, &contentFilter{&svc.encoder})
 
-	// user-specified filters
+	// user-specified service filters
 	if filters != nil {
 		svc.filters = append(svc.filters, filters...)
 	}

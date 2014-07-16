@@ -32,7 +32,7 @@ type EncoderJSON struct {
 	// MaxBodySize is the maximum size (in bytes) of JSON content to be read (io.Reader)
 	MaxBodySize int64
 
-	// Indented whether or not to output indented JSON.
+	// Indented indicates whether or not to output indented JSON.
 	Indented bool
 }
 

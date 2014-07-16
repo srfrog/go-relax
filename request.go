@@ -22,6 +22,8 @@ type Request struct {
 	PathValues url.Values
 
 	// Info contains information passed down from processed filters.
+	// Use ``re.Info.Print()`` to print all values.
+	// For usage, check http://github.com/codehack/go-environ
 	Info *environ.Env
 
 	// Decode is the decoding function when this request was made. It expects a

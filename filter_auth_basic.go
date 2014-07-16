@@ -11,11 +11,9 @@ import (
 	"strings"
 )
 
-const defaultRealm = "Authorization Required"
-
-// AuthBasic is a Filter that implements HTTP Basic Authentication as
+// FilterAuthBasic is a Filter that implements HTTP Basic Authentication as
 // described in http://www.ietf.org/rfc/rfc2617.txt
-type AuthBasic struct {
+type FilterAuthBasic struct {
 	// Realm is the authentication realm.
 	// This defaults to "Authorization Required"
 	Realm string
@@ -29,7 +27,9 @@ type AuthBasic struct {
 	Authenticate func(string, string) bool
 }
 
-func denyAccess(username, password string) bool {
+// denyAllAccess is the default Authenticate function, and as the name
+// implies, will deny all access by returning false.
+func denyAllAccess(username, password string) bool {
 	return false
 }
 
@@ -52,16 +52,19 @@ func getUserPass(header string) ([]string, error) {
 	return userpass, nil
 }
 
-func (self *AuthBasic) Run(next HandlerFunc) HandlerFunc {
+// Filter info passed down from FilterAuthBasic:
+//		re.Info.Get("auth.user") // auth user
+//		re.Info.Get("auth.type") // auth scheme type "basic"
+func (self *FilterAuthBasic) Run(next HandlerFunc) HandlerFunc {
 	if self.Realm == "" {
-		Log.Println(LOG_WARN, "AuthBasic: using default realm")
-		self.Realm = defaultRealm
+		Log.Println(LOG_WARN, "FilterAuthBasic: using default realm")
+		self.Realm = "Authorization Required"
 	}
 	self.Realm = strings.Replace(self.Realm, `"'`, "", -1)
 
 	if self.Authenticate == nil {
-		Log.Println(LOG_ALERT, "AuthBasic: denying all access; no authenticate function set")
-		self.Authenticate = denyAccess
+		Log.Println(LOG_ALERT, "FilterAuthBasic: denying all access; no authenticate function set")
+		self.Authenticate = denyAllAccess
 	}
 
 	return func(rw ResponseWriter, re *Request) {

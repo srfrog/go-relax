@@ -14,7 +14,7 @@ const (
 	contentMimeType        = "application/vnd.relax"
 	contentMimeTypeLen     = 21
 	contentDefaultVersion  = "current"
-	contentDefaultLanguage = "en"
+	contentDefaultLanguage = "en_US"
 )
 
 // contentFilter implements minimal content negotiation needed for accepting and
@@ -24,6 +24,10 @@ type contentFilter struct {
 	enc *Encoder
 }
 
+// Filter info passed down from contentFilter:
+//		re.Info.Get("content.encoding") // MIME type used for encoding
+//		re.Info.Get("content.version") // requested version, or "current"
+//		re.Info.Get("content.language") // requested language, or "en_US"
 func (self *contentFilter) Run(next HandlerFunc) HandlerFunc {
 	return func(rw ResponseWriter, re *Request) {
 		re.Info.Set("content.encoding", (*self.enc).Accept())
