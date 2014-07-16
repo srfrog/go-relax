@@ -25,9 +25,9 @@ type Users struct {
 	People []*User `json:"people"`
 }
 
-// Find searches users.People for a user matching ID and returns it; or
-// StatusError if not found. This could do a search in our DB and handle
-// the error logic.
+// FindById searches users.People for a user matching ID and returns it;
+// or StatusError if not found. This could do a search in our DB and
+// handle the error logic.
 func (u *Users) FindById(idstr string) (*User, error) {
 	id, err := strconv.Atoi(idstr)
 	if err != nil {
