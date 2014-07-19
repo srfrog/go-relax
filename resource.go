@@ -180,6 +180,6 @@ func (s *Service) Resource(collection Resourcer, filters ...Filter) *Resource {
 		res.filters = append(res.filters, filters...)
 	}
 
-	Log.Println(LOG_DEBUG, "New resource:", name, "=>", len(filters), "filters")
+	Log.Println(LOG_DEBUG, "New resource:", res.path, "=>", len(filters), "filters")
 	return res
 }

@@ -27,6 +27,14 @@ type FilterAuthBasic struct {
 	Authenticate func(string, string) bool
 }
 
+// ErrAuthInvalidRequest is returned when the auth request don't match the expected
+// challenge.
+var ErrAuthInvalidRequest = errors.New("Auth: Invalid authorization request")
+
+// ErrAuthInvalidSyntax is returned when the syntax of the credentials is not what is
+// expected.
+var ErrAuthInvalidSyntax = errors.New("Auth: Invalid credentials syntax")
+
 // denyAllAccess is the default Authenticate function, and as the name
 // implies, will deny all access by returning false.
 func denyAllAccess(username, password string) bool {
@@ -36,7 +44,7 @@ func denyAllAccess(username, password string) bool {
 func getUserPass(header string) ([]string, error) {
 	credentials := strings.Split(header, " ")
 	if len(credentials) != 2 || credentials[0] != "Basic" {
-		return nil, errors.New("Invalid authorization request")
+		return nil, ErrAuthInvalidRequest
 	}
 
 	authstr, err := base64.StdEncoding.DecodeString(credentials[1])
@@ -46,15 +54,15 @@ func getUserPass(header string) ([]string, error) {
 
 	userpass := strings.Split(string(authstr), ":")
 	if len(userpass) != 2 {
-		return nil, errors.New("Invalid credentials syntax")
+		return nil, ErrAuthInvalidSyntax
 	}
 
 	return userpass, nil
 }
 
-// Filter info passed down from FilterAuthBasic:
+// Run runs the filter and passes down the following Info:
 //		re.Info.Get("auth.user") // auth user
-//		re.Info.Get("auth.type") // auth scheme type "basic"
+//		re.Info.Get("auth.type") // auth scheme type. e.g., "basic"
 func (self *FilterAuthBasic) Run(next HandlerFunc) HandlerFunc {
 	if self.Realm == "" {
 		Log.Println(LOG_WARN, "FilterAuthBasic: using default realm")

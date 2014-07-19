@@ -11,13 +11,17 @@ import (
 	"io/ioutil"
 )
 
+// ErrBodyTooLarge is returned when the read length exceeds the maximum size
+// set for decoding payload.
+var ErrBodyTooLarge = errors.New("Encoder: Body too large")
+
 // Objects that implement the Encoder interface provide encoding/decoding
 // of content.
 type Encoder interface {
 	// Accept returns the MIME representation of encoding used in HTTP Accept header.
 	Accept() string
 
-	// ContentType returns the MIME representation of decoding user in Content-Type header.
+	// ContentType returns the MIME representation of decoding used in Content-Type header.
 	ContentType() string
 
 	// Encode function encodes an interface variable into a byte slice value of its encoding.
@@ -61,7 +65,7 @@ func (self *EncoderJSON) Decode(reader io.Reader, v interface{}) error {
 		return err
 	}
 	if int64(len(b)) > self.MaxBodySize {
-		return errors.New("json: Body too large")
+		return ErrBodyTooLarge
 	}
 	return json.Unmarshal(b, v)
 }

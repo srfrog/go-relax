@@ -95,11 +95,11 @@ func (self *Service) context(next HandlerFunc) http.HandlerFunc {
 		rw.Header().Set("X-Request-ID", r_id)
 		rw.Header().Set("X-Powered-By", "Go Relax v"+Version)
 
-		Log.Printf(LOG_INFO, "[%s] Request: %s %q for %s", r_id[:8], r.Method, r.URL.RequestURI(), r_addr)
+		Log.Printf(LOG_DEBUG, "%s method=%s uri=%s proto=%q addr=%s ua=%q", r_id, r.Method, r.URL.String(), r.Proto, r_addr, r.UserAgent())
 
 		next(rw, re)
 
-		Log.Printf(StatusLogLevel(rw.Status()), "[%s] Done: %d %q in %fs", r_id[:8], rw.Status(), http.StatusText(rw.Status()), time.Since(r_start).Seconds())
+		Log.Printf(StatusLogLevel(rw.Status()), "[%.8s] \"%s %s\" => \"%d %s\" done in %fs", r_id, r.Method, r.URL.RequestURI(), rw.Status(), http.StatusText(rw.Status()), time.Since(r_start).Seconds())
 	}
 }
 
@@ -108,8 +108,6 @@ func (self *Service) context(next HandlerFunc) http.HandlerFunc {
 func (self *Service) dispatch(rw ResponseWriter, re *Request) {
 	handler, err := self.router.FindHandler(re)
 	if err != nil {
-		// XXX: not sure if we should be plain here.
-		// http.Error(rw, err.Error(), err.(*StatusError).Code)
 		rw.Error(err.(*StatusError).Code, err.Error(), err.(*StatusError).Details)
 		return
 	}
@@ -194,6 +192,8 @@ func NewService(path string, filters ...Filter) *Service {
 	if filters != nil {
 		svc.filters = append(svc.filters, filters...)
 	}
+
+	Log.Println(LOG_DEBUG, "New service:", path, "=>", len(filters), "filters")
 
 	return svc
 }

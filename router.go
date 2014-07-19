@@ -144,7 +144,7 @@ func (self *trieRegexpRouter) AddRoute(method, path string, handler HandlerFunc)
 	pseg := strings.Split(method+strings.TrimRight(path, "/"), "/")
 	node := self.root
 	for i := 0; i < len(pseg); i++ {
-		if (strings.Contains(pseg[i], "{") && strings.Contains(pseg[i], "}")) || strings.ContainsAny(pseg[i], "*?") {
+		if (strings.Contains(pseg[i], "{") && strings.Contains(pseg[i], "}")) || strings.Contains(pseg[i], "*") {
 			if _, ok := pathRegexpCache[pseg[i]]; !ok {
 				pathRegexpCache[pseg[i]] = segmentExp(pseg[i])
 			}
@@ -181,10 +181,10 @@ func (self *trieNode) matchSegment(pseg string, depth int, values *url.Values) *
 				sub := rx.SubexpNames()
 				for i, n := 1, len(*values)/2; i < len(m); i++ {
 					_n := fmt.Sprintf("_%d", n+i)
-					Log.Println(LOG_DEBUG, "Path value:", _n, "=", m[i])
+					Log.Println(LOG_DEBUG, "[router] Path value:", _n, "=", m[i])
 					(*values).Set(_n, m[i])
 					if sub[i] != "" {
-						Log.Println(LOG_DEBUG, "Path value:", sub[i], "=", m[i])
+						Log.Println(LOG_DEBUG, "[router] Path value:", sub[i], "=", m[i])
 						(*values).Add(sub[i], m[i])
 					}
 				}
@@ -198,7 +198,11 @@ func (self *trieNode) matchSegment(pseg string, depth int, values *url.Values) *
 // FindHandler returns a resource handler that matches the requested route; or
 // StatusError error if none matched.
 func (self *trieRegexpRouter) FindHandler(re *Request) (HandlerFunc, error) {
-	pseg := strings.Split(re.Method+strings.TrimRight(re.URL.Path, "/"), "/")
+	method := re.Method
+	if method == "HEAD" {
+		method = "GET"
+	}
+	pseg := strings.Split(method+strings.TrimRight(re.URL.Path, "/"), "/")
 	node := self.root
 	for i, slen := 0, len(pseg); i < slen; i++ {
 		if node == nil {

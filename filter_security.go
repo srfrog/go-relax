@@ -41,7 +41,7 @@ type FilterSecurity struct {
 
 // BUG(TODO): FilterSecurity need more docs about each option.
 
-// FilterSecurity passes down no Info.
+// Run runs the filter
 func (self *FilterSecurity) Run(next HandlerFunc) HandlerFunc {
 	if self.UACheckErrMsg == "" {
 		self.UACheckErrMsg = "Request forbidden by security rules.\n" +

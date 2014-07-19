@@ -25,7 +25,7 @@ type Users struct {
 	People []*User `json:"people"`
 }
 
-// Find searches users.People for a user matching ID and returns it; or
+// FindById searches users.People for a user matching ID and returns it; or
 // StatusError if not found. This could do a search in our DB and handle
 // the error logic.
 func (u *Users) FindById(idstr string) (*User, error) {
@@ -106,8 +106,7 @@ func (u *Users) Delete(rw relax.ResponseWriter, re *relax.Request) {
 	rw.Error(http.StatusInternalServerError, "not reached!")
 }
 
-// SampleHandler simply prints out all path values, and responds with a
-// cheery message.
+// SampleHandler prints out all filter info, and responds with all path values.
 func SampleHandler(rw relax.ResponseWriter, re *relax.Request) {
 	relax.Log.Println(relax.LOG_INFO, "SampleHandler", "Request:", re.Method, re.URL.Path)
 	re.Info.Print() // print info passed down by filters
@@ -115,7 +114,7 @@ func SampleHandler(rw relax.ResponseWriter, re *relax.Request) {
 }
 
 // Example_basic creates a new service under path "/api" and serves requests
-// to for a users resource.
+// for the users resource.
 func Example_basic() {
 	// set our log level to DEBUG for more detail
 	relax.Log.SetLevel(relax.LOG_DEBUG)
@@ -133,7 +132,7 @@ func Example_basic() {
 	}
 
 	// create a service under /api/
-	svc := relax.NewService("/api")
+	svc := relax.NewService("/api", &relax.FilterGzip{}, &relax.FilterETag{})
 
 	// service-level filters (these could go inside NewService())
 	svc.Filter(&relax.FilterCORS{

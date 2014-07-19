@@ -8,16 +8,14 @@ import (
 	"net/http"
 )
 
-var (
-	// FilterOverrideMethods specifies the methods can be overriden.
-	// Format is FilterOverrideMethods["method"] = "override"
-	FilterOverrideMethods = map[string]string{
-		"DELETE":  "POST",
-		"OPTIONS": "GET",
-		"PATCH":   "POST",
-		"PUT":     "POST",
-	}
-)
+// FilterOverrideMethods specifies the methods can be overriden.
+// Format is FilterOverrideMethods["method"] = "override"
+var FilterOverrideMethods = map[string]string{
+	"DELETE":  "POST",
+	"OPTIONS": "GET",
+	"PATCH":   "POST",
+	"PUT":     "POST",
+}
 
 // FilterOverride changes the Request.Method if the client specifies
 // override via HTTP header or query. This allows clients with limited HTTP
@@ -30,7 +28,7 @@ type FilterOverride struct {
 	QueryVar string
 }
 
-// Filter info passed down from FilterOverride:
+// Run runs the filter and passes down the following Info:
 //		re.Info.Get("override.method") // method replaced. e.g., "PATCH"
 func (self *FilterOverride) Run(next HandlerFunc) HandlerFunc {
 	if self.Header == "" {

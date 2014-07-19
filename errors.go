@@ -4,7 +4,7 @@
 
 package relax
 
-// StatusError is an error with an HTTP Status code. It allows errors to be
+// StatusError is an error with a HTTP Status code. It allows errors to be
 // RESTful and uniform.
 type StatusError struct {
 	// Code is meant for a HTTP status code or any other numeric ID.
@@ -13,8 +13,8 @@ type StatusError struct {
 	// Message is the default error message used in logs.
 	Message string `json:"message"`
 
-	// Details can be any structure that gives more information about the
-	// error. Sent as the body of the response.
+	// Details can be any data structure that gives more information about the
+	// error.
 	Details interface{} `json:"details,omitempty"`
 }
 

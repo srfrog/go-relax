@@ -6,44 +6,64 @@ import (
 	"os"
 )
 
+// LogLevel indicates the severity of an event from LOG_EMERG (most imporant)
+// to LOG_DEBUG (least important), use -1 to disable all logging.
+// Events that are greater than the current Logger.SetLevel value are ignored.
+// LogLevel values are based on Apache's LogLevel directive -
+// https://httpd.apache.org/docs/2.4/mod/core.html#loglevel
+type LogLevel int
+
+const (
+	LOG_EMERG  LogLevel = iota // emergency, system is unusable. Terminate.
+	LOG_ALERT                  // action must be taken immediately
+	LOG_CRIT                   // critical conditions
+	LOG_ERR                    // error conditions
+	LOG_WARN                   // warning conditions
+	LOG_NOTICE                 // normal but significant condition
+	LOG_INFO                   // informational
+	LOG_DEBUG                  // terse, detailed debugging message.
+)
+
+// String returns a string representation of the log level.
+func (l LogLevel) String() string {
+	switch l {
+	case LOG_EMERG:
+		return "EMERG"
+	case LOG_ALERT:
+		return "ALERT"
+	case LOG_CRIT:
+		return "CRIT"
+	case LOG_ERR:
+		return "ERROR"
+	case LOG_WARN:
+		return "WARN"
+	case LOG_NOTICE:
+		return "NOTICE"
+	case LOG_INFO:
+		return "INFO"
+	case LOG_DEBUG:
+		return "DEBUG"
+	}
+	return "???"
+}
+
 // Logger interface allows any logging system to be plugged in.
-// Log importance is described as int levels, 0 being the most important (LOG_EMERG)
-// and 7 the least (LOG_DEBUG).
 type Logger interface {
 	// Print is analogous to log.Print.
-	// It expects an int which is the log level.
-	Print(int, ...interface{})
+	Print(LogLevel, ...interface{})
 
 	// Printf is analogous to log.Printf.
-	// It expects an int which is the log level and a format string.
-	Printf(int, string, ...interface{})
+	Printf(LogLevel, string, ...interface{})
 
 	// Println is analogous to log.Println; adds spaces between values and appends a newline.
-	// It expects an int which is the log level.
-	Println(int, ...interface{})
+	Println(LogLevel, ...interface{})
 
-	// SetLevel sets the minimum level value for a log event to be sent. No
-	// value-checking is done. Set to -1 to disable all logging.
-	// It expects a log level.
-	SetLevel(int)
+	// SetLevel sets the minimum level value for a log event to be sent.
+	SetLevel(LogLevel)
 }
 
 // Log is the global framework Logger.
 var Log Logger
-
-// Logging event levels. These indicate the severity of an event from LOG_EMERG
-// (most imporant) to LOG_DEBUG (least important). Events that are greater than
-// the current Logger.SetLevel value are ignored.
-const (
-	LOG_EMERG int = iota
-	LOG_ALERT
-	LOG_CRIT
-	LOG_ERR
-	LOG_WARN
-	LOG_NOTICE
-	LOG_INFO
-	LOG_DEBUG
-)
 
 // logger implements the Logger interface. It's a simple log to os.Stderr with
 // accent colors for the levels.
@@ -52,51 +72,32 @@ const (
 // not logged.
 type logger struct {
 	log   *log.Logger
-	level int
-}
-
-// loggerLevels is a map of level values to string prefixes that are used to highlight
-// events in the log output. These work better with color.
-var loggerLevels = map[int]string{
-	LOG_EMERG:  "!E!",
-	LOG_ALERT:  "!A!",
-	LOG_CRIT:   "!C!",
-	LOG_ERR:    "=E=",
-	LOG_WARN:   "=W=",
-	LOG_NOTICE: "[N]",
-	LOG_INFO:   "[I]",
-	LOG_DEBUG:  "[D]",
+	level LogLevel
 }
 
 // LogLevel converts a log level int to a prefix string that represents it.
-// ASCII escape sequences are used to colorize the prefix.
-func (self *logger) LogLevel(level int) string {
-	str, ok := loggerLevels[level]
-	if !ok {
-		str = loggerLevels[LOG_INFO]
-	}
-	format := "\x1b[%sm%-3s\x1b[0m "
-	color := ""
+// ANSI escape sequences are used to colorize the prefix.
+// See https://en.wikipedia.org/wiki/ANSI_escape_code#Colors
+func (self *logger) LogLevel(level LogLevel) string {
+	var format string
 	switch level {
 	case LOG_EMERG, LOG_ALERT, LOG_CRIT:
-		color = "1;33;41"
+		format = "\x1b[1;33;41m!%c!\x1b[0m "
 	case LOG_ERR:
-		color = "1;31"
+		format = "\x1b[1;31m=%c=\x1b[0m "
 	case LOG_WARN:
-		color = "1;33"
+		format = "\x1b[1;33m=%c=\x1b[0m "
 	case LOG_NOTICE:
-		color = "36"
+		format = "\x1b[32m[%c]\x1b[0m "
 	case LOG_DEBUG:
-		color = "34"
-	// case LOG_INFO:
-	// color = "32"
+		format = "\x1b[34m[%c]\x1b[0m "
 	default:
-		color = "39"
+		format = "[%c] "
 	}
-	return fmt.Sprintf(format, color, str)
+	return fmt.Sprintf(format, level.String()[0])
 }
 
-func (self *logger) Print(level int, v ...interface{}) {
+func (self *logger) Print(level LogLevel, v ...interface{}) {
 	if level > self.level {
 		return
 	}
@@ -104,7 +105,7 @@ func (self *logger) Print(level int, v ...interface{}) {
 	self.log.Print(v...)
 }
 
-func (self *logger) Printf(level int, format string, v ...interface{}) {
+func (self *logger) Printf(level LogLevel, format string, v ...interface{}) {
 	if level > self.level {
 		return
 	}
@@ -112,7 +113,7 @@ func (self *logger) Printf(level int, format string, v ...interface{}) {
 	self.log.Printf(format, v...)
 }
 
-func (self *logger) Println(level int, v ...interface{}) {
+func (self *logger) Println(level LogLevel, v ...interface{}) {
 	if level > self.level {
 		return
 	}
@@ -120,7 +121,7 @@ func (self *logger) Println(level int, v ...interface{}) {
 	self.log.Println(v...)
 }
 
-func (self *logger) SetLevel(level int) {
+func (self *logger) SetLevel(level LogLevel) {
 	self.level = level
 }
 
@@ -128,7 +129,7 @@ func (self *logger) SetLevel(level int) {
 // It returns one of the following levels:
 // codes 100-199 = LOG_INFO, codes 200-299 = LOG_NOTICE, codes 400-499 = LOG_WARN,
 // code 500+ = LOG_ERR
-func StatusLogLevel(code int) int {
+func StatusLogLevel(code int) LogLevel {
 	level := LOG_INFO
 	switch {
 	case code >= 200 && code < 300:
@@ -147,23 +148,19 @@ func Logging(logger Logger) {
 	Log = logger
 }
 
-func newLogger() *logger {
-	return &logger{log.New(os.Stderr, "", log.LstdFlags), LOG_INFO}
-}
-
 // DefaultLogger is a simple os.Stderr logger with levels and color. Each
 // log message is prefixed with one of the following color-coded strings based
 // on the event level. The initial log level is LOG_INFO.
 // Log level prefixes:
-// 	LOG_EMERG:  "!E!",
-// 	LOG_ALERT:  "!A!",
-// 	LOG_CRIT:   "!C!",
-// 	LOG_ERR:    "=E=",
-// 	LOG_WARN:   "=W=",
-// 	LOG_NOTICE: "[N]",
-// 	LOG_INFO:   "[I]",
-// 	LOG_DEBUG:  "[D]",
-var DefaultLogger = newLogger()
+// 	LOG_EMERG:  "!E!"
+// 	LOG_ALERT:  "!A!"
+// 	LOG_CRIT:   "!C!"
+// 	LOG_ERR:    "=E="
+// 	LOG_WARN:   "=W="
+// 	LOG_NOTICE: "[N]"
+// 	LOG_INFO:   "[I]"
+// 	LOG_DEBUG:  "[D]"
+var DefaultLogger = &logger{log.New(os.Stderr, "", log.LstdFlags), LOG_INFO}
 
 func init() {
 	Log = DefaultLogger

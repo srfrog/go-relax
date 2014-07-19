@@ -165,7 +165,7 @@ func (self *FilterCORS) isOriginAllowed(origin string) bool {
 	return false
 }
 
-// Filter info passed down from FilterCORS:
+// Run runs the filter and passes down the following Info:
 //		re.Info.Get("cors.request") // boolean, whether or not this was a CORS request.
 //		re.Info.Get("cors.origin") // Origin of the request, if CORS
 func (self *FilterCORS) Run(next HandlerFunc) HandlerFunc {
@@ -208,6 +208,7 @@ func (self *FilterCORS) Run(next HandlerFunc) HandlerFunc {
 
 		if !self.AllowAnyOrigin && !self.isOriginAllowed(origin) {
 			if self.Strict {
+				Log.Printf(LOG_DEBUG, "%s FilterCORS: origin not allowed %q", re.Info.Get("context.request_id"), origin)
 				rw.Error(http.StatusForbidden, "Invalid CORS origin")
 				return
 			}

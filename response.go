@@ -4,9 +4,7 @@
 
 package relax
 
-import (
-	"net/http"
-)
+import "net/http"
 
 const (
 	// Status codes from WebDAV. See https://tools.ietf.org/html/rfc4918
@@ -34,7 +32,8 @@ type ResponseWriter interface {
 	// Error sends an (encoded) error response with optional details.
 	Error(int, string, ...interface{})
 
-	// Status returns the known value of HTTP status code.
+	// Status returns the known value of HTTP status code. If the status
+	// is not known, it will return 200 (OK).
 	Status() int
 }
 
