@@ -5,7 +5,6 @@
 package relax
 
 import (
-	"bytes"
 	"compress/gzip"
 	"strings"
 )
@@ -44,25 +43,34 @@ func (self *FilterGzip) Run(next HandlerFunc) HandlerFunc {
 			return
 		}
 
-		rr := NewResponseRewriter(bytes.NewBuffer(nil), rw.(*responseWriter).w)
-		defer rr.Free()
+		// already gzipped
+		if strings.Contains(re.Header.Get("Content-Encoding"), "gzip") || re.Header.Get("Content-Range") != "" {
+			Log.Printf(LOG_DEBUG, "%s FilterGzip: compression disabled (unsupported)", re.Info.Get("context.request_id"))
+			next(rw, re)
+			return
+		}
 
-		rw.(*responseWriter).w = rr
-		next(rw, re)
-		rw.(*responseWriter).w = rr.ResponseWriter
+		rr, buf := NewResponseBuffer(rw)
+		next(rr, re)
 
-		if n := rr.Writer.(*bytes.Buffer).Len(); n > self.MinLength && n < 0xffff {
-			gz, err := gzip.NewWriterLevel(rr.ResponseWriter, self.CompressionLevel)
+		if buf.Status() == 204 || buf.Status() < 200 || buf.Status() > 299 {
+			Log.Printf(LOG_DEBUG, "%s FilterGzip: compression disabled (status=%d)", re.Info.Get("context.request_id"), rw.Status())
+			goto Finish
+		}
+
+		if n := buf.Len(); n > self.MinLength && n < 0xffff {
+			gz, err := gzip.NewWriterLevel(rw, self.CompressionLevel)
+			defer gz.Close()
 			if err != nil {
 				Log.Println(LOG_CRIT, "FilterGzip: compression failed:", err.Error())
 			} else {
 				re.Info.Set("compress.type", "gzip")
-				rw.Header().Add("Content-Encoding", "gzip")
-				rr.Writer.(*bytes.Buffer).WriteTo(gz)
-				gz.Close()
+				buf.Header().Add("Content-Encoding", "gzip")
+				buf.WriteTo(gz)
 				return
 			}
 		}
-		rr.Writer.(*bytes.Buffer).WriteTo(rr.ResponseWriter)
+	Finish:
+		buf.Flush()
 	}
 }

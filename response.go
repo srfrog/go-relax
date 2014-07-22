@@ -43,14 +43,21 @@ type ResponseWriter interface {
 // Encode is the encoder function; it expects an object then returns its byte representation,
 // or an error if failed.
 type responseWriter struct {
-	w           http.ResponseWriter
+	http.ResponseWriter
 	wroteHeader bool
 	status      int
+	bytes       int
 	Encode      func(interface{}) ([]byte, error)
 }
 
+// newRequest creates a new ResponseWriter object.
+func newResponseWriter(w http.ResponseWriter, enc *Encoder) *responseWriter {
+	rw := &responseWriter{ResponseWriter: w, Encode: (*enc).Encode}
+	return rw
+}
+
 func (self *responseWriter) Header() http.Header {
-	return self.w.Header()
+	return self.ResponseWriter.Header()
 }
 
 func (self *responseWriter) WriteHeader(code int) {
@@ -59,11 +66,11 @@ func (self *responseWriter) WriteHeader(code int) {
 	}
 	self.wroteHeader = true
 	self.status = code
-	self.w.WriteHeader(code)
+	self.ResponseWriter.WriteHeader(code)
 }
 
 func (self *responseWriter) Write(b []byte) (int, error) {
-	return self.w.Write(b)
+	return self.ResponseWriter.Write(b)
 }
 
 func (self *responseWriter) Status() int {
