@@ -42,8 +42,8 @@ This and more Howto's are found in the [wiki](https://github.com/codehack/go-rel
 ### Use existing or third-party net/http handlers
 
 ```go
-// split the return of Handler()
-path, handler := res.Handler()
+// split the return of Service.Handler()
+path, handler := myservice.Handler()
 
 // now use your handler chain, for example, with a timeout.
 http.Handle(path, http.TimeoutHandler(handler, 3, "Time out!"))
