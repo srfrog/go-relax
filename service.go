@@ -78,7 +78,7 @@ func (self *Service) context(next HandlerFunc) http.HandlerFunc {
 			r_addr = ip
 		}
 
-		rw := &responseWriter{w: w, Encode: self.encoder.Encode}
+		rw := newResponseWriter(w, &self.encoder)
 		re := newRequest(r, &self.encoder)
 		defer re.free()
 

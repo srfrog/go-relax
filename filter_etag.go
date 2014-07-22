@@ -5,7 +5,6 @@
 package relax
 
 import (
-	"bytes"
 	"crypto/sha1"
 	"fmt"
 	"net/http"
@@ -46,31 +45,27 @@ func (self *FilterETag) Run(next HandlerFunc) HandlerFunc {
 		var etag string
 		re.Info.Set("etag.enabled", true)
 
-		rr := NewResponseRewriter(bytes.NewBuffer(nil), rw.(*responseWriter).w)
-		defer rr.Free()
-
-		rw.(*responseWriter).w = rr
-		next(rw, re)
-		rw.(*responseWriter).w = rr.ResponseWriter
+		rr, buf := NewResponseBuffer(rw)
+		next(rr, re)
 
 		// Do not pass GO. Do not collect $200
-		if rw.Status() < 200 || rw.Status() == http.StatusNoContent ||
-			(rw.Status() > 299 && rw.Status() != http.StatusPreconditionFailed) ||
+		if buf.Status() < 200 || buf.Status() == http.StatusNoContent ||
+			(buf.Status() > 299 && buf.Status() != http.StatusPreconditionFailed) ||
 			!strings.Contains("DELETE GET HEAD PATCH POST PUT", re.Method) {
-			Log.Printf(LOG_DEBUG, "%s FilterETag: no ETag generated (status=%d method=%s)", re.Info.Get("context.request_id"), rw.Status(), re.Method)
+			Log.Printf(LOG_DEBUG, "%s FilterETag: no ETag generated (status=%d method=%s)", re.Info.Get("context.request_id"), buf.Status(), re.Method)
 			goto Finish
 		}
 
-		etag = rw.Header().Get("ETag")
+		etag = buf.Header().Get("ETag")
 
-		if (re.Method == "GET" || re.Method == "HEAD") && rw.Status() == http.StatusOK {
+		if (re.Method == "GET" || re.Method == "HEAD") && buf.Status() == http.StatusOK {
 			if etag == "" {
 				// change etag when using compression
 				alter := ""
 				if ct := re.Info.Get("compress.type"); ct != "" {
 					alter = "-" + ct
 				}
-				etag = fmt.Sprintf(`"%x%s"`, sha1.Sum(rr.Writer.(*bytes.Buffer).Bytes()), alter)
+				etag = fmt.Sprintf(`"%x%s"`, sha1.Sum(buf.Bytes()), alter)
 			}
 		}
 
@@ -78,16 +73,16 @@ func (self *FilterETag) Run(next HandlerFunc) HandlerFunc {
 			ifnone, ifmatch := re.Header.Get("If-None-Match"), re.Header.Get("If-Match")
 			if ifmatch != "" && ((ifmatch == "*" && etag == "") || !strongCmp(ifmatch, etag)) {
 				/* FIXME: need to verify Status per request.
-				if strings.Contains("DELETE PATCH POST PUT", re.Method) && rw.Status() != http.StatusPreconditionFailed {
+				if strings.Contains("DELETE PATCH POST PUT", re.Method) && buf.Status() != http.StatusPreconditionFailed {
 					// XXX: we cant confirm it's the same resource item without re-GET'ing it.
 					// XXX: maybe etag should be changed from strong to weak.
 					etag = ""
-					Log.Printf(LOG_DEBUG, "%s FilterETag: no ETag generated (status=%d method=%s)", re.Info.Get("context.request_id"), rw.Status(), re.Method)
+					Log.Printf(LOG_DEBUG, "%s FilterETag: no ETag generated (status=%d method=%s)", re.Info.Get("context.request_id"), buf.Status(), re.Method)
 					goto Finish
 				}
 				*/
 				rw.WriteHeader(http.StatusPreconditionFailed)
-				rr.Writer.(*bytes.Buffer).Reset()
+				buf.Free()
 				return
 			}
 
@@ -95,23 +90,22 @@ func (self *FilterETag) Run(next HandlerFunc) HandlerFunc {
 			// If-Unmodified-Since, and/or Range/If-Range.
 
 			if ifnone != "" && ((ifnone == "*" && etag != "") || strings.Contains(ifnone, etag)) {
+				defer buf.Free()
 				if re.Method == "GET" || re.Method == "HEAD" {
 					rw.Header().Set("ETag", etag)
 					rw.Header().Add("Vary", "If-None-Match")
 					rw.WriteHeader(http.StatusNotModified)
-					rr.Writer.(*bytes.Buffer).Reset()
 					return
 				}
 				rw.WriteHeader(http.StatusPreconditionFailed)
-				rr.Writer.(*bytes.Buffer).Reset()
 				return
 			}
 		}
 	Finish:
 		if etag != "" {
-			rw.Header().Set("ETag", etag)
-			rw.Header().Add("Vary", "If-None-Match")
+			buf.Header().Set("ETag", etag)
+			buf.Header().Add("Vary", "If-None-Match")
 		}
-		rr.Writer.(*bytes.Buffer).WriteTo(rw)
+		buf.Flush()
 	}
 }

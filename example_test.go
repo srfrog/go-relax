@@ -158,7 +158,7 @@ func Example_basic() {
 
 	// serve our resource with CRUD routes, using unsigned ints as ID's.
 	// this resource has FilterSecurity as resource-level filter.
-	res := svc.Resource(users, &relax.FilterSecurity{}).CRUD("{uint:id}")
+	res := svc.Resource(users, &relax.FilterSecurity{CacheDisable: true}).CRUD("{uint:id}")
 
 	// although CRUD added a route for "DELETE /api/users/{uint:id}",
 	// we can override it here and respond with status 418.
