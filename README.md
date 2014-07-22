@@ -13,8 +13,8 @@
 - Works fine along with ``http.ServeMux`` or independently as ``http.Handler``.
 - Uses JSON encoding by default, enforcing content-negotiation per request.
 - Default routing engine uses **trie with regexp matching** for speed and flexibility.
-- Includes filters used by most API's. aka "Batteries included" (WIP)
-- All framework components: encoding, routing, logging and filters, are modular. Easily replaced by external packages.
+- Includes filters used by most API's. aka _"Batteries included"_, but not the kitchen sink. (WIP)
+- All framework components: encoding, routing, logging, and filters, are modular. Easily replaced by external packages.
 - Uses ``sync.pool`` to efficiently use resources when under heavy load.
 
 ## Installation
@@ -27,11 +27,17 @@ Then import from source:
 
 	import "github.com/codehack/go-relax"
 
+### Extra / Contributed modules
+
+Visit [https://github.com/codehack/go-relax-more](https://github.com/codehack/go-relax-more) for more modules and examples.
+
 ## Example
 
 Check [example_test.go](https://github.com/codehack/go-relax/blob/master/example_test.go) for an example of basic usage.
 
 ## Howto
+
+This and more Howto's are found in the [wiki](https://github.com/codehack/go-relax/wiki).
 
 ### Use existing or third-party net/http handlers
 
