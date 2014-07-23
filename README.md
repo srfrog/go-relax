@@ -27,10 +27,6 @@ Then import from source:
 
 	import "github.com/codehack/go-relax"
 
-### Extra / Contributed modules
-
-Visit [https://github.com/codehack/go-relax-more](https://github.com/codehack/go-relax-more) for more modules and examples.
-
 ## Example
 
 Check [example_test.go](https://github.com/codehack/go-relax/blob/master/example_test.go) for an example of basic usage.
