@@ -35,12 +35,12 @@ func (_ *EncoderXML) ContentType() string {
 // Encode converts a value v into its XML representation.
 // Returns a byte slice of XML value, or error on failure.
 // on failure.
-func (e *EncoderXML) Encode(v interface{}) ([]byte, error) {
+func (self *EncoderXML) Encode(v interface{}) ([]byte, error) {
 	var bb bytes.Buffer
 	var b []byte
 	var err error
 
-	if e.Indented {
+	if self.Indented {
 		b, err = xml.MarshalIndent(v, "", "\t")
 	} else {
 		b, err = xml.Marshal(v)
