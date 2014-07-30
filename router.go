@@ -53,10 +53,10 @@ type trieRegexpRouter struct {
 //
 // For example, given the following route and handler:
 //		"GET /api/users/111" -> users.GetUser()
-//			- the path segment links are ["GET", "api", "users", "111"]
-//			- "GET" has depth=0 and "111" has depth=3
-//			- suppose "111" might be matched via regexp, then "users".numExp > 0
-//			- "111" segment will point to the handler users.GetUser()
+//        - the path segment links are ["GET", "api", "users", "111"]
+//        - "GET" has depth=0 and "111" has depth=3
+//        - suppose "111" might be matched via regexp, then "users".numExp > 0
+//        - "111" segment will point to the handler users.GetUser()
 type trieNode struct {
 	handler HandlerFunc
 	numExp  int
@@ -83,15 +83,15 @@ func segmentExp(pattern string) *regexp.Regexp {
 	})
 	// date: matches a date as described in ISO 8601. see: https://en.wikipedia.org/wiki/ISO_8601
 	// accepted values:
-	//		YYYY
-	//		YYYY-MM
-	//		YYYY-MM-DD
-	//		YYYY-MM-DDTHH
-	//		YYYY-MM-DDTHH:MM
-	//		YYYY-MM-DDTHH:MM:SS[.NN]
-	//		YYYY-MM-DDTHH:MM:SS[.NN]Z
-	//		YYYY-MM-DDTHH:MM:SS[.NN][+-]HH
-	//		YYYY-MM-DDTHH:MM:SS[.NN][+-]HH:MM
+	// 	YYYY
+	// 	YYYY-MM
+	// 	YYYY-MM-DD
+	// 	YYYY-MM-DDTHH
+	// 	YYYY-MM-DDTHH:MM
+	// 	YYYY-MM-DDTHH:MM:SS[.NN]
+	// 	YYYY-MM-DDTHH:MM:SS[.NN]Z
+	// 	YYYY-MM-DDTHH:MM:SS[.NN][+-]HH
+	// 	YYYY-MM-DDTHH:MM:SS[.NN][+-]HH:MM
 	//
 	p = regexp.MustCompile(`\{(?:date\:)\w+\}`).
 		ReplaceAllStringFunc(p, func(m string) string {
@@ -103,11 +103,11 @@ func segmentExp(pattern string) *regexp.Regexp {
 	})
 	// geo: geo location in decimal. See http://tools.ietf.org/html/rfc5870
 	// accepted values:
-	//		lat,lon 				(point)
-	//		lat,lon,alt			(3d point)
-	//		lag,lon;u=unc		(circle)
-	//		lat,lon,alt;u=unc	(sphere)
-	//		lat,lon;crs=name	(point with coordinate reference system (CRS) value)
+	// 	lat,lon           (point)
+	// 	lat,lon,alt       (3d point)
+	// 	lag,lon;u=unc     (circle)
+	// 	lat,lon,alt;u=unc (sphere)
+	// 	lat,lon;crs=name  (point with coordinate reference system (CRS) value)
 	p = regexp.MustCompile(`\{(?:geo\:)\w+\}`).
 		ReplaceAllStringFunc(p, func(m string) string {
 		name := m[5 : len(m)-1]
@@ -162,7 +162,7 @@ func (self *trieRegexpRouter) AddRoute(method, path string, handler HandlerFunc)
 	Log.Println(LOG_DEBUG, "New route:", method, path)
 }
 
-// matchSegment tries to match a path segment 'pseg' to the a node's regexp links.
+// matchSegment tries to match a path segment 'pseg' to the node's regexp links.
 // This function will return any path values matched so they can be used in
 // Request.PathValues.
 func (self *trieNode) matchSegment(pseg string, depth int, values *url.Values) *trieNode {
