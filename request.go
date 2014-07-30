@@ -26,9 +26,10 @@ type Request struct {
 	// For usage, check http://github.com/codehack/go-environ
 	Info *environ.Env
 
-	// Decode is the decoding function when this request was made. It expects a
-	// reader object that is inserted into a variable. Typically this reader is
-	// Request.Body
+	// Decode is the decoding function when this request was made.
+	// Decore expects an object that implements io.Reader, usually Request.Body.
+	// Then it will decode the payload from the client and try to save it into
+	// a variable interface.
 	Decode func(io.Reader, interface{}) error
 }
 
@@ -37,9 +38,11 @@ var requestPool = sync.Pool{
 	New: func() interface{} { return new(Request) },
 }
 
-// free returns a Request object back to requestPool for later (re-)use
+// free frees a Request object back to requestPool for later (re-)use
 func (self *Request) free() {
+	self.Request = nil
 	self.PathValues = nil
+	self.Decode = nil
 	self.Info.Free()
 	requestPool.Put(self)
 }
@@ -50,12 +53,11 @@ func (self *Request) BaseURI() string {
 	return url.String()
 }
 
-// newRequest creates a new Request object.
-func newRequest(r *http.Request, enc *Encoder) *Request {
+// newRequest returns a new Request object.
+func newRequest(r *http.Request) *Request {
 	re := requestPool.Get().(*Request)
 	re.Request = r
 	re.PathValues = make(url.Values)
-	re.Decode = (*enc).Decode
 	re.Info = environ.NewEnv()
 
 	// this little hack to make net/url work with full URLs.

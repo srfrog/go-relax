@@ -33,7 +33,7 @@ var (
 	ErrRouteNotFound = &StatusError{http.StatusNotFound, "That route was not found.", nil}
 
 	// The path did not match a given HTTP method.
-	ErrRouteBadMethod = &StatusError{http.StatusMethodNotAllowed, "That method is not supported", nil}
+	ErrRouteBadMethod = &StatusError{http.StatusNotImplemented, "That method is not supported", nil}
 )
 
 // pathRegexpCache is a cache of all compiled regexp's so they can be reused.
@@ -69,8 +69,8 @@ type trieNode struct {
 //
 // BUG(TODO): trieRegexpRouter has no support for custom regexp's for PSE's yet.
 func segmentExp(pattern string) *regexp.Regexp {
+	// turn "*" => "{wild}"
 	pattern = strings.Replace(pattern, "*", `{wild}`, -1)
-
 	// any: catch-all pattern
 	p := regexp.MustCompile(`\{\w+\}`).
 		ReplaceAllStringFunc(pattern, func(m string) string {
@@ -141,9 +141,9 @@ func segmentExp(pattern string) *regexp.Regexp {
 // segment contains matching {}'s then it is tried as a regexp segment, otherwise it is
 // treated as a regular string segment.
 func (self *trieRegexpRouter) AddRoute(method, path string, handler HandlerFunc) {
-	pseg := strings.Split(method+strings.TrimRight(path, "/"), "/")
 	node := self.root
-	for i := 0; i < len(pseg); i++ {
+	pseg := strings.Split(method+strings.TrimRight(path, "/"), "/")
+	for i := range pseg {
 		if (strings.Contains(pseg[i], "{") && strings.Contains(pseg[i], "}")) || strings.Contains(pseg[i], "*") {
 			if _, ok := pathRegexpCache[pseg[i]]; !ok {
 				pathRegexpCache[pseg[i]] = segmentExp(pseg[i])
@@ -166,30 +166,31 @@ func (self *trieRegexpRouter) AddRoute(method, path string, handler HandlerFunc)
 // This function will return any path values matched so they can be used in
 // Request.PathValues.
 func (self *trieNode) matchSegment(pseg string, depth int, values *url.Values) *trieNode {
-	if self.numExp > 0 {
-		for pexp := range self.links {
-			rx := pathRegexpCache[pexp]
-			if rx == nil {
-				continue
-			}
-			// this prevents the matching to be side-tracked by smaller paths.
-			if depth > self.links[pexp].depth && self.links[pexp].links == nil {
-				continue
-			}
-			m := rx.FindStringSubmatch(pseg)
-			if len(m) > 1 && m[0] == pseg {
-				sub := rx.SubexpNames()
-				for i, n := 1, len(*values)/2; i < len(m); i++ {
-					_n := fmt.Sprintf("_%d", n+i)
-					Log.Println(LOG_DEBUG, "[router] Path value:", _n, "=", m[i])
-					(*values).Set(_n, m[i])
-					if sub[i] != "" {
-						Log.Println(LOG_DEBUG, "[router] Path value:", sub[i], "=", m[i])
-						(*values).Add(sub[i], m[i])
-					}
+	if self.numExp == 0 {
+		return self.links[pseg]
+	}
+	for pexp := range self.links {
+		rx := pathRegexpCache[pexp]
+		if rx == nil {
+			continue
+		}
+		// this prevents the matching to be side-tracked by smaller paths.
+		if depth > self.links[pexp].depth && self.links[pexp].links == nil {
+			continue
+		}
+		m := rx.FindStringSubmatch(pseg)
+		if len(m) > 1 && m[0] == pseg {
+			sub := rx.SubexpNames()
+			for i, n := 1, len(*values)/2; i < len(m); i++ {
+				_n := fmt.Sprintf("_%d", n+i)
+				Log.Println(LOG_DEBUG, "[router] Path value:", _n, "=", m[i])
+				(*values).Set(_n, m[i])
+				if sub[i] != "" {
+					Log.Println(LOG_DEBUG, "[router] Path value:", sub[i], "=", m[i])
+					(*values).Add(sub[i], m[i])
 				}
-				return self.links[pexp]
 			}
+			return self.links[pexp]
 		}
 	}
 	return self.links[pseg]
@@ -202,9 +203,10 @@ func (self *trieRegexpRouter) FindHandler(re *Request) (HandlerFunc, error) {
 	if method == "HEAD" {
 		method = "GET"
 	}
-	pseg := strings.Split(method+strings.TrimRight(re.URL.Path, "/"), "/")
 	node := self.root
-	for i, slen := 0, len(pseg); i < slen; i++ {
+	pseg := strings.Split(method+strings.TrimRight(re.URL.Path, "/"), "/")
+	slen := len(pseg)
+	for i := range pseg {
 		if node == nil {
 			if i <= 1 {
 				return nil, ErrRouteBadMethod

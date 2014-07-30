@@ -50,11 +50,11 @@ func (self *FilterGzip) Run(next HandlerFunc) HandlerFunc {
 			return
 		}
 
-		rr, buf := NewResponseBuffer(rw)
-		next(rr, re)
+		rb, buf := NewResponseBuffer(rw)
+		next(rb, re)
 
 		if buf.Status() == 204 || buf.Status() < 200 || buf.Status() > 299 {
-			Log.Printf(LOG_DEBUG, "%s FilterGzip: compression disabled (status=%d)", re.Info.Get("context.request_id"), rw.Status())
+			Log.Printf(LOG_DEBUG, "%s FilterGzip: compression disabled (status=%d)", re.Info.Get("context.request_id"), buf.Status())
 			goto Finish
 		}
 

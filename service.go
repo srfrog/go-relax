@@ -7,22 +7,38 @@ package relax
 import (
 	"code.google.com/p/go-uuid/uuid"
 	"net/http"
+	"net/url"
 	"time"
 )
 
 // Service contains all the information about the service and resources handled.
 // Specifically, the routing, encoding and service filters.
 type Service struct {
-	path    string   // path is the base URI path.
-	router  Router   // router is the routing engine that routes URI paths to resource handlers.
-	encoder Encoder  // encoder is the active encoding engine.
-	filters []Filter // filters are the service-level filters; which are run for all incoming requests.
+	// baseURI is the full reference URI to the service.
+	baseURI string
+	// path is the base path.
+	path string
+	// router is the routing engine
+	router Router
+	// encoders contains a list of our service media encoders.
+	// Format: {mediatype}:{encoder object}. e.g., encoders["application/json"].
+	encoders map[string]Encoder
+	// filters are the service-level filters; which are run for all incoming requests.
+	filters []Filter
+	// resources is a list of all mapped resources
+	resources []*Resource
+	// links contains all the relation links
+	links []*Link
 }
 
-// getPath returns the base path of this service. If sub is not empty,
-// it will append the value to the path.
-func (self *Service) getPath(sub string) string {
+// getPath returns the base path of this service.
+// sub is a subpath segment to append to the path.
+// absolute whether or not it should return an absolute path.
+func (self *Service) getPath(sub string, absolute bool) string {
 	path := self.path
+	if absolute {
+		path = self.baseURI
+	}
 	if sub != "" {
 		path += sub
 	}
@@ -78,22 +94,25 @@ func (self *Service) context(next HandlerFunc) http.HandlerFunc {
 			r_addr = ip
 		}
 
-		rw := newResponseWriter(w, &self.encoder)
-		re := newRequest(r, &self.encoder)
+		rw := newResponseWriter(w)
+		re := newRequest(r)
+		defer rw.free()
 		defer re.free()
 
 		if needsRequestId(r_id) {
 			r_id = uuid.New()
 		}
 
+		// set our default headers
+		rw.Header().Set("Server", "Go-Relax/"+Version)
+		rw.Header().Set("Server", "Go-Relax/"+Version)
+		rw.Header().Set("Request-Id", r_id)
+		rw.Header().Set(LinkHeader(re.URL.Path, `rel="self"`))
+
+		// filter info
 		re.Info.Set("context.start_time", r_start.Unix()) // request start time
 		re.Info.Set("context.client_addr", r_addr)        // ip address
 		re.Info.Set("context.request_id", r_id)           // request id
-
-		// set our default headers
-		rw.Header().Set("Content-Type", self.encoder.ContentType())
-		rw.Header().Set("X-Request-ID", r_id)
-		rw.Header().Set("X-Powered-By", "Go Relax v"+Version)
 
 		Log.Printf(LOG_DEBUG, "%s method=%s uri=%s proto=%q addr=%s ua=%q", r_id, r.Method, r.URL.String(), r.Proto, r_addr, r.UserAgent())
 
@@ -103,15 +122,52 @@ func (self *Service) context(next HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// dispatch adapter tries to connect the request to a resource handler. If it can't find
+// dispatch tries to connect the request to a resource handler. If it can't find
 // an appropiate handler it will return an HTTP error response.
 func (self *Service) dispatch(rw ResponseWriter, re *Request) {
 	handler, err := self.router.FindHandler(re)
 	if err != nil {
+		rw.Header().Set("Cache-Control", "max-age=300, stale-if-error=600")
 		rw.Error(err.(*StatusError).Code, err.Error(), err.(*StatusError).Details)
 		return
 	}
 	handler(rw, re)
+}
+
+// optionsHandler responds to OPTION requests. It returns an Allow header listing
+// the methods allowed for this service path.
+func (self *Service) optionsHandler(rw ResponseWriter, re *Request) {
+	rw.Header().Set("Allow", "OPTIONS,GET")
+	rw.WriteHeader(http.StatusNoContent)
+}
+
+// Map is a handler that responds with a list of all resources managed by the
+// service. This is the default route to the baseURI.
+// FIXME: Map needs to respond with a complete service map in JSON-LD.
+func (self *Service) Map(rw ResponseWriter, re *Request) {
+	var serviceMap struct {
+		Resources map[string]string `json:"resources"`
+		Media     struct {
+			Type     string   `json:"type"`
+			Version  string   `json:"version"`
+			Language string   `json:"language"`
+			Encoders []string `json:"encoders"`
+		} `json:"media"`
+	}
+	serviceMap.Resources = make(map[string]string, 0)
+	for _, v := range self.resources {
+		serviceMap.Resources[v.name] = self.getPath(v.name, true)
+	}
+	serviceMap.Media.Type = contentMediaType
+	serviceMap.Media.Version = re.Info.Get("content.version")
+	serviceMap.Media.Language = re.Info.Get("content.language")
+	for k, _ := range self.encoders {
+		serviceMap.Media.Encoders = append(serviceMap.Media.Encoders, k)
+	}
+	for _, link := range self.links {
+		rw.Header().Add("Link", link.String())
+	}
+	rw.Respond(serviceMap)
 }
 
 // Handler is a function that returns the parameters needed by http.Handle
@@ -141,59 +197,122 @@ func (self *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.ServeHTTP(w, r)
 }
 
-// Routing is used to change the routing engine.
-// It expects a router object that implements the Router interface.
+// Use adds one or more encoders, filters and/or router to the service.
 // Returns the service itself, for chaining.
-func (self *Service) Routing(router Router) *Service {
-	self.router = router
+//
+// To add new filters, assign an object that implements the Filter interface.
+// Filters are not replaced or updated, only appended to the service list.
+// Examples:
+//
+// 	myservice.Use(&FilterCORS{})
+// 	myservice.Use(&FilterSecurity{CacheDisable: true})
+//
+// To add encoders, assign an object that implements the Encoder interface.
+// Encoders will replace any matching existing encoder(s), and they will
+// be discoverable on the service map.
+// Example:
+//
+// 	newenc := NewEncoderXML() // encoder with default settings
+// 	newenc.Indented = true    // change a setting
+// 	myservice.Use(newenc)     // assign it to service
+//
+// To change the routing engine, assign an object that implements the
+// Router interface:
+//
+// 	myservice.Use(MyFastRouter())
+//
+// Any entities that don't implement the require interfaces, will be ignored.
+func (self *Service) Use(entities ...interface{}) *Service {
+	for _, e := range entities {
+		switch entity := e.(type) {
+		case Encoder:
+			self.encoders[entity.Accept()] = entity
+			Log.Printf(LOG_DEBUG, "Using encoder: %T", entity)
+		case Filter:
+			self.filters = append(self.filters, entity)
+			Log.Printf(LOG_DEBUG, "Using filter: %T", entity)
+		case Router:
+			self.router = entity
+			Log.Printf(LOG_DEBUG, "Using router: %T", entity)
+		default:
+			Log.Printf(LOG_NOTICE, "Unknown entity to use: %T", entity)
+		}
+	}
 	return self
 }
 
-// Encoding is used to change the encoding engine. It expects an encoder object
-// that implements the Encoder interface.
-// Returns the service itself, for chaining.
-func (self *Service) Encoding(encoder Encoder) *Service {
-	self.encoder = encoder
-	return self
-}
-
-// Filter adds new filter(s) to run at the Service level.
-// Service-level filters will run for all requests, in the order they are assigned.
-// Returns the service itself, for chaining.
-func (self *Service) Filter(filter Filter) *Service {
-	self.filters = append(self.filters, filter)
-	return self
+// Router returns the service routing engine.
+//
+// The routing engine is responsible for creating routes (method + path)
+// to service resources, and accessing them for each request.
+// To add new routes you can use this interface directly:
+//
+// 	myservice.Router().AddRoute(method, path, handler)
+//
+// Any route added directly with AddRoute() must reside under the service
+// URI base path, otherwise it won't work. No checks are made.
+// To find a handler to a request:
+//
+//		h := myservice.Router().FindHandler(re)
+//
+// This will return the handler associated for the route in the request 're'.
+// Where 're' is an *relax.Request object, usually sent through relax.HanderFunc.
+func (self *Service) Router() Router {
+	return self.router
 }
 
 // NewService returns a new Service that can serve resources.
-// path is the base path to this service. It should not overlap other service paths.
+// uri is the base URI to this service. It must be an absolute URI.
 // If an existing path is specified, the last path is used.
 // filters is an optional value that contains a list of Filter objects that
 // run at the Service-level; which will run for all requests.
 // Returns the new service created.
-func NewService(path string, filters ...Filter) *Service {
-	// the service path must end (and begin) with "/", this way ServeMux can setup a redirect for the non-absolute path.
-	if path == "" || path[len(path)-1] != '/' {
-		path += "/"
+func NewService(uri string, filters ...Filter) *Service {
+	url, err := url.Parse(uri)
+	if err != nil {
+		panic(err.Error())
 	}
 
-	svc := &Service{
-		path:    path,
-		router:  newRouter(),
-		encoder: &EncoderJSON{},
-		filters: make([]Filter, 0),
+	if !url.IsAbs() {
+		Log.Println(LOG_NOTICE, "Service URI is not absolute.")
 	}
+
+	// the service path must end (and begin) with "/", this way ServeMux can
+	// make a redirect for the non-absolute path.
+	if url.Path == "" || url.Path[len(url.Path)-1] != '/' {
+		url.Path += "/"
+	}
+	url.User = nil // XXX: should do something with this
+	url.RawQuery = ""
+	url.Fragment = ""
+
+	svc := &Service{
+		baseURI:   url.String(),
+		path:      url.Path,
+		router:    newRouter(),
+		encoders:  make(map[string]Encoder),
+		filters:   make([]Filter, 0),
+		resources: make([]*Resource, 0),
+		links:     make([]*Link, 0),
+	}
+
+	// Set the default encoder, EncoderJSON
+	svc.encoders["application/json"] = NewEncoderJSON()
 
 	// The contentFilter, which provides content-negotiation, is the only default
 	// service-level filter.
-	svc.filters = append(svc.filters, &contentFilter{&svc.encoder})
+	svc.filters = append(svc.filters, &contentFilter{&svc.encoders})
 
 	// user-specified service filters
 	if filters != nil {
 		svc.filters = append(svc.filters, filters...)
 	}
 
-	Log.Println(LOG_DEBUG, "New service:", path, "=>", len(filters), "filters")
+	Log.Println(LOG_DEBUG, "New service:", svc.path, "=>", len(filters), "filters")
+
+	// setup default service routes
+	svc.router.AddRoute("GET", url.Path, svc.Map)
+	svc.router.AddRoute("OPTIONS", url.Path, svc.optionsHandler)
 
 	return svc
 }

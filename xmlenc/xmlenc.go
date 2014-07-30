@@ -15,25 +15,48 @@ import (
 // EncoderXML implements the relax.Encoder interface. It encode/decodes XML.
 type EncoderXML struct {
 	// MaxBodySize is the maximum size (in bytes) of XML content to be read (io.Reader)
+	// Defaults to 4194304 (4MB)
 	MaxBodySize int64
 
 	// Indented indicates whether or not to output indented XML.
+	// Defaults to false
 	Indented bool
+
+	// AcceptHeader is the media type used in Accept HTTP header.
+	// Defaults to "application/xml"
+	AcceptHeader string
+
+	// ContentTypeHeader is the media type used in Content-Type HTTP header
+	// Defaults to "application/xml;charset=utf-8"
+	ContentTypeHeader string
 }
 
-// Accept returns the MIME representation for xml content, used in Accept header.
-func (_ *EncoderXML) Accept() string {
-	return "application/xml"
+// NewEncoderXML returns an EncoderXML object. This function will initiallize
+// the object with sane defaults, for use with Service.encoders.
+// Returns the new EncoderXML object.
+func NewEncoderXML() *EncoderXML {
+	return &EncoderXML{
+		MaxBodySize:       4194304, // 4MB
+		Indented:          false,
+		AcceptHeader:      "application/xml",
+		ContentTypeHeader: "application/xml;charset=utf-8",
+	}
 }
 
-// ContentType returns the MIME representation for xml content, used in the
+// Accept returns the media type for XML content, used in Accept header.
+func (self *EncoderXML) Accept() string {
+	return self.AcceptHeader
+}
+
+// ContentType returns the media type for XML content, used in the
 // Content-Type header.
-func (_ *EncoderXML) ContentType() string {
-	return "application/xml;charset=utf-8"
+func (self *EncoderXML) ContentType() string {
+	return self.ContentTypeHeader
 }
 
-// Encode converts a value v into its XML representation.
-// Returns a byte slice of XML value, or error on failure.
+// Encode will try to encode the value of v into XML. If EncoderJSON.Indented
+// is true, then the XML will be indented with tabs.
+// Returns the XML content and nil on success, otherwise []byte{} and error
 // on failure.
 func (self *EncoderXML) Encode(v interface{}) ([]byte, error) {
 	var bb bytes.Buffer
@@ -61,12 +84,10 @@ func (self *EncoderXML) Encode(v interface{}) ([]byte, error) {
 }
 
 // Decode reads an XML payload (usually from Request.Body) and tries to
-// set it to a variable v.
-// Returns error on failure.
+// set it to a variable v. If the payload is too large, with maximum
+// EncoderXML.MaxBodySize, it will fail with error ErrBodyTooLarge
+// Returns nil on success and error on failure.
 func (self *EncoderXML) Decode(reader io.Reader, v interface{}) error {
-	if self.MaxBodySize == 0 {
-		self.MaxBodySize = int64(1 << 21) // 2MB
-	}
 	r := io.LimitReader(reader, self.MaxBodySize+1)
 	b, err := ioutil.ReadAll(r)
 	if err != nil {

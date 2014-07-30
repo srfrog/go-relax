@@ -5,15 +5,11 @@
 package relax
 
 import "net/http"
+import "sync"
 
+// Status codes are in net/http but not accessible. These work with http.StatusText().
+// See https://tools.ietf.org/html/rfc6585
 const (
-	// Status codes from WebDAV. See https://tools.ietf.org/html/rfc4918
-	StatusUnprocessableEntity = 422
-	StatusLocked              = 423
-	StatusFailedDependency    = 424
-
-	// Status codes in net/http but not accessible. See https://tools.ietf.org/html/rfc6585
-	// These work with http.StatusText().
 	StatusPreconditionRequired          = 428
 	StatusTooManyRequests               = 429
 	StatusRequestHeaderFieldsTooLarge   = 431
@@ -50,9 +46,25 @@ type responseWriter struct {
 	Encode      func(interface{}) ([]byte, error)
 }
 
-// newRequest creates a new ResponseWriter object.
-func newResponseWriter(w http.ResponseWriter, enc *Encoder) *responseWriter {
-	rw := &responseWriter{ResponseWriter: w, Encode: (*enc).Encode}
+// responseWriterPool allows us to reuse some responseWriter objects to conserve resources.
+var responseWriterPool = sync.Pool{
+	New: func() interface{} { return new(responseWriter) },
+}
+
+// free frees a responseWriter object back to responseWriterPool for later (re-)use
+func (self *responseWriter) free() {
+	self.ResponseWriter = nil
+	self.wroteHeader = false
+	self.status = 0
+	self.bytes = 0
+	self.Encode = nil
+	responseWriterPool.Put(self)
+}
+
+// newResponseWriter creates a new responseWriter object.
+func newResponseWriter(w http.ResponseWriter) *responseWriter {
+	rw := responseWriterPool.Get().(*responseWriter)
+	rw.ResponseWriter = w
 	return rw
 }
 

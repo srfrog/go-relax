@@ -5,19 +5,19 @@
 package relax
 
 import (
+	"fmt"
 	"net/http"
-	"reflect"
 	"strings"
 )
 
 // Objects that implement the Resourcer interface will serve requests for a
 // resource. A typical resource will implement one or all of the
 // handlers in this interface, but those that aren't implemented should use
-// the DefaultHandler() so expecting clients get a RESTful response.
+// the MethodNotAllowed() so expecting clients get a RESTful response.
 type Resourcer interface {
-	// List may serve the entry GET request to a resource. Such as a listing of
+	// Index may serve the entry GET request to a resource. Such as a listing of
 	// resource items.
-	List(ResponseWriter, *Request)
+	Index(ResponseWriter, *Request)
 
 	// Create may allow the creation of new resource items via methods POST/PUT.
 	Create(ResponseWriter, *Request)
@@ -38,8 +38,10 @@ type Resource struct {
 	service    *Service    // service this resource belongs
 	name       string      // name of this resource, derived from collection
 	path       string      // path is the URI to this resource
-	collection interface{} // the object that implements Resourcer
+	collection interface{} // the object that implements Resourcer; a collection
 	filters    []Filter    // list of resource-level filters
+	methods    string      // list of available methods
+	links      []*Link     // resource links
 }
 
 // getPath similar as Service.getPath, returns the path to this resource. If sub
@@ -55,26 +57,49 @@ func (self *Resource) getPath(sub string) string {
 	return path
 }
 
-// DefaultHandler is a handler used to send a RESTful response when a resource route is
-// not yet implemented.
-func (self *Resource) DefaultHandler(rw ResponseWriter, re *Request) {
-	// BUG(TODO): DefaultHandler must add "Allow" header with methods which are allowed.
-	rw.Error(http.StatusNotImplemented, "Resource route not handled.")
-	// XXX: hmm... blame the client or the service?
-	// rw.Error(http.StatusMethodNotAllowed, "Resource route not handled.")
+// optionsHandler responds to OPTION requests. It returns an Allow header listing
+// the methods allowed for this resource.
+// BUG(TODO): optionsHandler should peek for Authenticated routes.
+func (self *Resource) optionsHandler(rw ResponseWriter, re *Request) {
+	rw.Header().Set("Allow", self.methods)
+	rw.WriteHeader(http.StatusNoContent)
 }
 
-// Route adds a resource route (method + path) and its handler to the router. It returns
-// the resource itself for chaining.
+// NotImplemented is a handler used to send a response when a resource route is
+// not yet implemented.
+func (self *Resource) NotImplemented(rw ResponseWriter, re *Request) {
+	rw.Error(http.StatusNotImplemented, "That route is not implemented.")
+}
+
+// MethodNotAllowed is a handler used to send a response when a method is not
+// allowed.
+func (self *Resource) MethodNotAllowed(rw ResponseWriter, re *Request) {
+	rw.Header().Set("Allow", self.methods)
+	rw.Error(http.StatusMethodNotAllowed, "That method is not available for this resource.")
+}
+
+// relHandler is a resource filter that adds relations to the response.
+func (self *Resource) relHandler(next HandlerFunc) HandlerFunc {
+	return func(rw ResponseWriter, re *Request) {
+		// FIXME: better relations here. this is a naive implementation.
+		for _, link := range self.links {
+			rw.Header().Add("Link", link.String())
+		}
+		next(rw, re)
+	}
+}
+
+// Route adds a resource route (method + path) and its handler to the router.
 // method is the HTTP method verb (GET, POST, ...).
 // path is the URI path and optional matching expressions.
 // h is the handler function with signature HandlerFunc (see Filter).
 // filters are route-level filters run before the handler.
+// Returns the resource itself for chaining.
 //
 // If the resource has its own filters, these are prepended to the filters list,
 // resource-level filters will run before route-level filters.
 func (self *Resource) Route(method, path string, h HandlerFunc, filters ...Filter) *Resource {
-	handler := h
+	handler := self.relHandler(h)
 	if filters != nil {
 		for i := len(filters) - 1; i >= 0; i-- {
 			handler = filters[i].Run(handler)
@@ -85,10 +110,21 @@ func (self *Resource) Route(method, path string, h HandlerFunc, filters ...Filte
 			handler = self.filters[i].Run(handler)
 		}
 	}
+	// handler = self.Link(handler)
+	method = strings.ToUpper(method)
 	self.service.router.AddRoute(
-		strings.ToUpper(method),
+		method,
 		self.getPath(path),
 		handler)
+
+	// update methods list
+	if !strings.Contains(self.methods, method) {
+		if self.methods != "" {
+			self.methods += ","
+		}
+		self.methods += method
+	}
+
 	return self
 }
 
@@ -126,15 +162,19 @@ func (self *Resource) PUT(path string, h HandlerFunc, filters ...Filter) *Resour
 // pse is a route path segment expression (PSE).
 // It returns the resource itself for chaining.
 //
-// For example, given the Resourcer object "users", CRUD with pse "{uint:id}" will add the following routes:
+// For example, for a service under "/api/", given the Resourcer object "users",
+// CRUD("{uint:id}") will add the following routes:
 //
-//		GET /api/users                => use handler users.List()
+//		GET /api/users                => use handler users.Index()
 //		GET /api/users/{uint:id}      => use handler users.Read()
 //		POST /api/users               => use handler users.Create()
-//		PUT /api/users                => potentially dangerous, uses Resource.DefaultHandler
+//		PUT /api/users                => Status: 405 Method not allowed
 //		PUT /api/users/{uint:id}      => use handler users.Update()
-//		DELETE /api/users             => potentially dangerous, uses Resource.DefaultHandler
+//		DELETE /api/users             => Status: 405 Method not allowed
 //		DELETE /api/users/{uint:id}   => use handler users.Delete()
+//
+// Other uses of PUT/PATCH/DELETE are dependent on the application, so CRUD()
+// won't make any assumptions for those.
 func (self *Resource) CRUD(pse string) *Resource {
 	if pse == "" {
 		// use resource collection name
@@ -144,42 +184,63 @@ func (self *Resource) CRUD(pse string) *Resource {
 		}
 	}
 
-	self.Route("GET", "", (self.collection).(Resourcer).List)
+	self.Route("GET", "", (self.collection).(Resourcer).Index)
 	self.Route("GET", pse, (self.collection).(Resourcer).Read)
 	self.Route("POST", "", (self.collection).(Resourcer).Create)
-	self.Route("PUT", "", self.DefaultHandler)
+	self.Route("PUT", "", self.MethodNotAllowed)
 	self.Route("PUT", pse, (self.collection).(Resourcer).Update)
-	self.Route("DELETE", "", self.DefaultHandler)
+	self.Route("DELETE", "", self.MethodNotAllowed)
 	self.Route("DELETE", pse, (self.collection).(Resourcer).Delete)
-	// self.Route("OPTIONS", "", self.DefaultHandler)
 
 	return self
 }
 
 // Resource creates a new resource under Service that accepts REST requests.
+// It will add an OPTIONS route that replies with an Allow header listing
+// the methods available, along other default headers.
+// This returns the new Resource object.
+//
 // collection is an object that implements the Resourcer interface.
 // filters are resource-level filters that are ran before a resource handler, but
 // after service-level filters.
-// It returns the new Resource object.
 //
-// This function will panic if it can't determine the name of a collection
+// This function will panic if it can't determine the name of an collection
 // through reflection.
-func (s *Service) Resource(collection Resourcer, filters ...Filter) *Resource {
-	// reflect name from object's definition
-	cs := reflect.TypeOf(collection).String()
+func (svc *Service) Resource(collection Resourcer, filters ...Filter) *Resource {
+	// reflect name from object's type
+	cs := fmt.Sprintf("%T", collection)
 	name := strings.ToLower(cs[strings.LastIndex(cs, ".")+1:])
 	if name == "" {
 		panic(`relax: Resource(` + cs + `): failed to reflect name of collection`)
 	}
 
-	res := &Resource{s, name, s.getPath(name), collection, nil}
+	res := &Resource{
+		service:    svc,
+		name:       name,
+		path:       svc.getPath(name, false),
+		collection: collection,
+		filters:    nil,
+		links:      make([]*Link, 0),
+	}
 
 	// user-specified filters
 	if filters != nil {
-		// res.filters = make([]Filter)
 		res.filters = append(res.filters, filters...)
 	}
 
 	Log.Println(LOG_DEBUG, "New resource:", res.path, "=>", len(filters), "filters")
+
+	// OPTIONS lists the methods allowed.
+	res.Route("OPTIONS", "", res.optionsHandler)
+
+	// update service resources list
+	svc.resources = append(svc.resources, res)
+
+	// Relation: resource -> service
+	svc.links = append(svc.links, &Link{URI: res.path, Rel: svc.getPath("rel/"+name, true)})
+
+	// Relation: index -> resource.path
+	res.links = append(res.links, &Link{URI: res.path, Rel: "index"})
+
 	return res
 }

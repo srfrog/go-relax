@@ -45,8 +45,8 @@ func (self *FilterETag) Run(next HandlerFunc) HandlerFunc {
 		var etag string
 		re.Info.Set("etag.enabled", true)
 
-		rr, buf := NewResponseBuffer(rw)
-		next(rr, re)
+		rb, buf := NewResponseBuffer(rw)
+		next(rb, re)
 
 		// Do not pass GO. Do not collect $200
 		if buf.Status() < 200 || buf.Status() == http.StatusNoContent ||

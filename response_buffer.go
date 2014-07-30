@@ -12,7 +12,7 @@ import (
 )
 
 // responseBuffer implements http.ResponseWriter. It is used to redirect all
-// writes and headers to a buffer, which can be written to a RewriteWriter.
+// writes and headers to a buffer, which can be written to a ResponseWriter.
 type responseBuffer struct {
 	ResponseWriter
 	buf         bytes.Buffer
@@ -88,9 +88,9 @@ func (self *responseBuffer) Bytes() []byte {
 	return self.buf.Bytes()
 }
 
-// reponseRewriterPool allows us to reuse some responseBuffer objects to
+// reponseBufferPool allows us to reuse some responseBuffer objects to
 // conserve system resources.
-var reponseRewriterPool = sync.Pool{
+var reponseBufferPool = sync.Pool{
 	New: func() interface{} { return new(responseBuffer) },
 }
 
@@ -103,7 +103,7 @@ func (self *responseBuffer) Free() {
 	self.wroteHeader = false
 	self.status = 0
 	self.header = nil
-	reponseRewriterPool.Put(self)
+	reponseBufferPool.Put(self)
 }
 
 // NewResponseBuffer create a responseBuffer object.
@@ -111,8 +111,8 @@ func (self *responseBuffer) Free() {
 // Returns new responseWriter object that uses a responseBuffer to bypass writes
 // to ResponseWriter, and the responseBuffer object itself.
 func NewResponseBuffer(rw ResponseWriter) (*responseWriter, *responseBuffer) {
-	rr := reponseRewriterPool.Get().(*responseBuffer)
-	rr.ResponseWriter = rw
-	rr.header = make(http.Header)
-	return &responseWriter{ResponseWriter: rr, Encode: rw.(*responseWriter).Encode}, rr
+	rb := reponseBufferPool.Get().(*responseBuffer)
+	rb.ResponseWriter = rw
+	rb.header = make(http.Header)
+	return &responseWriter{ResponseWriter: rb, Encode: rw.(*responseWriter).Encode}, rb
 }
