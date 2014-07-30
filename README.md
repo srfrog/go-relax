@@ -1,20 +1,26 @@
-# Go-Relax [![GoDoc](https://godoc.org/github.com/codehack/go-relax?status.svg)](https://godoc.org/github.com/codehack/go-relax) ![Project progress](http://progressed.io/bar/32 "Progress")
+# Go-Relax [![GoDoc](https://godoc.org/github.com/codehack/go-relax?status.svg)](https://godoc.org/github.com/codehack/go-relax) ![Project progress](http://progressed.io/bar/35 "Progress")
 
-*Build fast and efficient RESTful APIs in [Go](http://golang.org)*
+*Build fast and complete RESTful APIs in [Go](http://golang.org)*
 
-**Go-Relax** is a framework of pluggable components to build RESTful API's. It provides a thin layer over ``net/http`` to serve resources, without imposing a rigid structure. It is meant to be used along ``http.ServeMux``, but will work as a replacement as it implements ``http.Handler``.
+**Go-Relax** is a framework of pluggable components to build RESTful API's. It provides a thin layer over ``net/http`` to serve resources. It can be used along ``http.ServeMux``, but will work as a complement as it implements ``http.Handler``.
 
-*Go-Relax* wraps itself around the concept of resources. A resource is any object that can serve requests (data) to clients. *Go-Relax* tries to be more than a router to resources, but rather a _resource service_.
+_Path to 1.0: Please keep note of the framework version as different areas are refactored and updated. Each commit is assumed stable but interfaces are not set in stone yet._
+
+## Mission Statement
+
+*Go-Relax* aims to provide the tools to help developers build RESTful web services, and information needed to abide by [REST](https://en.wikipedia.org/wiki/REST) architectural constraints using correct [HTTP semantics](http://tools.ietf.org/html/rfc7231).
 
 ## Features
 
-- Helps build API's that follow the REST concept using ROA architecture.
+- Helps build API's that follow the REST concept using ROA principles.
+- Built-in support of HATEOAS constraint with Link header (and soon JSON-LD).
 - It follows REST best practices, with inspiration from other REST API's like Heroku and GitHub's.
 - Works fine along with ``http.ServeMux`` or independently as ``http.Handler``.
-- Uses JSON encoding by default, enforcing content-negotiation per request.
-- Default routing engine uses **trie with regexp matching** for speed and flexibility.
-- Includes filters used by most API's. aka _"Batteries included"_, but not the kitchen sink. (WIP)
-- All framework components: encoding, routing, logging, and filters, are modular. Easily replaced by external packages.
+- Support for different media types, that can be **mixed** for requests and responses.
+- It uses **JSON** media type by default, but also includes XML (not enabled by default).
+- The default routing engine uses **trie with regexp matching** for speed and flexibility.
+- Comes with a complete set of filters to build a working API. aka _"Batteries included"_ but not the kitchen sink.
+- All the framework's components: encoding, routing, logging, and filters, are modular. And should be easily replaced by custom packages.
 - Uses ``sync.pool`` to efficiently use resources when under heavy load.
 
 ## Installation

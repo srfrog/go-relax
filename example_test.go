@@ -5,7 +5,8 @@
 package relax_test
 
 import (
-	"github.com/codehack/go-relax"
+	// "github.com/codehack/go-relax"
+	"."
 	"log"
 	"net/http"
 	"strconv"
@@ -43,8 +44,8 @@ func (u *Users) FindById(idstr string) (*User, error) {
 	return nil, &relax.StatusError{http.StatusNotFound, "That user was not found", nil}
 }
 
-// List handles "GET /api/users"
-func (u *Users) List(rw relax.ResponseWriter, re *relax.Request) {
+// Index handles "GET /api/users"
+func (u *Users) Index(rw relax.ResponseWriter, re *relax.Request) {
 	rw.Header().Set("X-Custom-Header", "important header info from my framework")
 	// list all users in the resource.
 	rw.Respond(u)
@@ -135,15 +136,18 @@ func Example_basic() {
 	svc := relax.NewService("/api", &relax.FilterGzip{}, &relax.FilterETag{})
 
 	// service-level filters (these could go inside NewService())
-	svc.Filter(&relax.FilterCORS{
+	svc.Use(&relax.FilterCORS{
 		AllowAnyOrigin:   true,
 		AllowCredentials: true,
 	})
 	// method override support
-	svc.Filter(&relax.FilterOverride{})
+	svc.Use(&relax.FilterOverride{})
+	svc.Use(&relax.FilterOverride{})
 
 	// I prefer pretty indentation.
-	svc.Encoding(&relax.EncoderJSON{Indented: true})
+	json := relax.NewEncoderJSON()
+	json.Indented = true
+	svc.Use(json)
 
 	// Basic authentication, used as needed
 	needsAuth := &relax.FilterAuthBasic{

@@ -14,7 +14,7 @@ Then import from source:
 
 ## Usage
 
-For most programs you'll change the service default encoder (JSON) to this one.
+To accept and respond with xml, you must add an object to the Service.Encoders map.
 
 ```go
 package main
@@ -28,9 +28,15 @@ import (
 func main() {
 	mysrv := relax.NewService("/api")
 
-	mysrv.Encoding(&xmlenc.EncoderXML{Indented: true})
+	// create and configure new encoder object
+	enc := NewEncoderXML()
+	enc.Indented = true
 
-	// ... your resource routes etc...
+	// assign it to service "mysrv".
+	// this maps "application/xml" media queries to this encoder.
+	mysrv.Use(enc)
+
+	// done. now you can continue with your resource routes etc...
 
 	http.Handle(mysrv.Handler())
 	log.Fatal(http.ListenAndServe(":8000", nil))
@@ -39,8 +45,12 @@ func main() {
 
 ### Options
 
-	encoder := &xmlenc.EncoderXML{Indented: true, MaxBodySize: 10000}
+	encoder := &xmlenc.EncoderXML{Indented: true, MaxBodySize: 10000, AcceptHeader: "text/xml"}
 
 ``Indented``: boolean; set to true to encode indented XML. Default is **false**.
 
-``MaxBodySize``: int; the maximum size (in bytes) of XML content to be read. Default is **2097152** (2MB)
+``MaxBodySize``: int; the maximum size (in bytes) of XML content to be read. Default is **4194304** (4MB)
+
+``AcceptHeader``: the MIME media type expected in Accept header. Default is "application/xml"
+
+``ContentTypeHeader``: the MIME media type, and optionally character set, expected in Content-Type header. Default is "application/xml;charset=utf-8"

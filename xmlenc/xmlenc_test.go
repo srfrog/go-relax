@@ -32,7 +32,8 @@ func TestEncoder(t *testing.T) {
 	reader := bytes.NewReader(xmlstr)
 	object := &Object{}
 
-	encoder := &xmlenc.EncoderXML{Indented: true}
+	encoder := xmlenc.NewEncoderXML()
+	encoder.Indented = true
 
 	err := encoder.Decode(reader, object)
 	if err != nil {
