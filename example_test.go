@@ -5,8 +5,7 @@
 package relax_test
 
 import (
-	// "github.com/codehack/go-relax"
-	"."
+	"github.com/codehack/go-relax"
 	"log"
 	"net/http"
 	"strconv"
