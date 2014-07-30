@@ -64,7 +64,7 @@ func newRequest(r *http.Request) *Request {
 	// net/http doesn't fill these for server requests, but we need them.
 	if re.URL.Scheme == "" {
 		re.URL.Scheme = "http"
-		if re.TLS != nil {
+		if re.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
 			re.URL.Scheme += "s"
 		}
 	}
