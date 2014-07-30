@@ -85,7 +85,7 @@ func needsRequestId(id string) bool {
 //		context.request_id:	Unique or program-supplied request ID.
 func (self *Service) context(next HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		r_start, r_addr, r_id := time.Now(), r.RemoteAddr, r.Header.Get("X-Request-ID")
+		r_start, r_addr, r_id := time.Now(), r.RemoteAddr, r.Header.Get("Request-Id")
 
 		// check if the IP address is hidden behind a proxy request.
 		if ip := r.Header.Get("X-Real-IP"); ip != "" {
@@ -104,7 +104,6 @@ func (self *Service) context(next HandlerFunc) http.HandlerFunc {
 		}
 
 		// set our default headers
-		rw.Header().Set("Server", "Go-Relax/"+Version)
 		rw.Header().Set("Server", "Go-Relax/"+Version)
 		rw.Header().Set("Request-Id", r_id)
 		rw.Header().Set(LinkHeader(re.URL.Path, `rel="self"`))
