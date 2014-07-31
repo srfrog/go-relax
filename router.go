@@ -12,7 +12,56 @@ import (
 	"strings"
 )
 
-// The Router interface can be used to replace default routing engine (trieRegexpRouter).
+/*
+Router
+
+The routing system is modular and can be replaced by creating an object that implements
+the Router interface. This interface defines two functions: one that adds routes and
+another that finds a handle to a resource.
+
+Relax's default router is trieRegexpRouter. It takes full routes, with HTTP method and path, and
+inserts them in a trie that can use regular expressions to match individual path segments.
+
+trieRegexpRouter's path segment expressions (PSE) are match strings that are pre-compiled as
+regular expressions. PSE's provide a simple layer of security when accepting values from
+the path. Each PSE is made out of a {type:varname} format, where type is the expected type
+for a value and varname is the name to give the variable that matches the value.
+
+	"{word:varname}" // matches any word; alphanumeric and underscore.
+
+	"{uint:varname}" // matches an unsigned integer.
+
+	"{int:varname}" // matches a signed integer.
+
+	"{float:varname}" // matches a floating-point number in decimal notation.
+
+	"{date:varname}" // matches a date in ISO 8601 format.
+
+	"{geo:varname}" // matches a geo location as described in RFC 5870
+
+	"{hex:varname}" // matches a hex number, with optional "0x" prefix.
+
+	"{varname}" // catch-all; matches anything. it may overlap other matches.
+
+	"*" // translated into "{wild}"
+
+Some sample routes supported by trieRegexpRouter:
+
+	GET /api/users/@{word:name}
+
+	GET /api/users/{uint:id}/*
+
+	POST /api/users/{uint:id}/profile
+
+	DELETE /api/users/{date:from}/to/{date:to}
+
+	GET /api/cities/{geo:location}
+
+	PATCH /api/investments/\${float:dollars}/fund
+
+Since PSE's are compiled to regexp, care must be taken to escape characters that
+might break the compilation.
+*/
 type Router interface {
 	// FindHandler should match request parameters to an existing resource handler and
 	// return it. If no match is found, it should return an StatusError error which will
@@ -158,8 +207,13 @@ func (self *trieRegexpRouter) AddRoute(method, path string, handler HandlerFunc)
 		}
 		node = node.links[pseg[i]]
 	}
+
+	if node.handler != nil {
+		Log.Println(LOG_DEBUG, "Chg route:", method, path)
+	} else {
+		Log.Println(LOG_DEBUG, "Add route:", method, path)
+	}
 	node.handler = handler
-	Log.Println(LOG_DEBUG, "New route:", method, path)
 }
 
 // matchSegment tries to match a path segment 'pseg' to the node's regexp links.

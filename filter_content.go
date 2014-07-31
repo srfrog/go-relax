@@ -14,7 +14,7 @@ const (
 	contentMediaType     = "application/vnd.relax"
 	contentMediaTypeLen  = 21
 	contentMediaVersion  = "current"
-	contentMediaLanguage = "en_US"
+	contentMediaLanguage = "en"
 )
 
 // contentFilter implements minimal content negotiation needed for accepting and

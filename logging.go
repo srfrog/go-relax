@@ -47,7 +47,22 @@ func (l LogLevel) String() string {
 	return "???"
 }
 
-// Logger interface allows any logging system to be plugged in.
+/*
+Logger
+
+The Logger interface allows any logging system to be plugged in.
+
+Relax provides a very simple logging system that is intended to be replaced by
+something more robust. The foundation is laid for logging systems that support
+event levels. An object must implement the Logger interface to enhance logging.
+
+Logging itself is individual to each application and it's almost impossible to
+build a system that can handle all cases. Many Go packages implement competent
+logging systems that should fit the Logger interface.
+
+The default logging system is a slight enhancement of the log package with colored
+prefixes for each event level.
+*/
 type Logger interface {
 	// Print is analogous to log.Print.
 	Print(LogLevel, ...interface{})
@@ -58,7 +73,7 @@ type Logger interface {
 	// Println is analogous to log.Println; adds spaces between values and appends a newline.
 	Println(LogLevel, ...interface{})
 
-	// SetLevel sets the minimum level value for a log event to be sent.
+	// SetLevel sets the minimum level value for a log event to be printed.
 	SetLevel(LogLevel)
 }
 

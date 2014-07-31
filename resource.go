@@ -11,14 +11,16 @@ import (
 )
 
 // Objects that implement the Resourcer interface will serve requests for a
-// resource. A typical resource will implement one or all of the
-// handlers in this interface, but those that aren't implemented should use
-// the MethodNotAllowed() so expecting clients get a RESTful response.
+// resource.
 type Resourcer interface {
 	// Index may serve the entry GET request to a resource. Such as a listing of
 	// resource items.
 	Index(ResponseWriter, *Request)
+}
 
+// The CRUD interface is for Resourcer objects that provide create, read,
+// update and delete operations, also known as CRUD.
+type CRUD interface {
 	// Create may allow the creation of new resource items via methods POST/PUT.
 	Create(ResponseWriter, *Request)
 
@@ -32,8 +34,30 @@ type Resourcer interface {
 	Delete(ResponseWriter, *Request)
 }
 
-// Resource contains information about a resource. Resources are mapped under
-// a Service.
+/*
+Resource
+
+The main purpose of this framework is build REST API's that can serve resources.
+In Relax, a resource is any object that implements the Resourcer interface.
+Although it might seem a bit strict to require some specific handlers, they
+reinforce that resources are handled in one or many ways. Your application is
+not required to implement all handlers but at least let the client know such
+handlers are not implemented. A resource creates a namespace where all operations
+for that resource happen.
+Example:
+
+	type Locations struct{
+		City string
+		Country string
+	}
+
+	// This function is needed for Locations to implement Resourcer
+	func (l *Locations) Index (rw relax.ResponseWriter, re *relax.Request) {}
+
+	loc := &Locations{City: "Scottsdale", Country: "US"}
+	myresource := service.Resource(loc)
+
+*/
 type Resource struct {
 	service    *Service    // service this resource belongs
 	name       string      // name of this resource, derived from collection
@@ -89,15 +113,20 @@ func (self *Resource) relHandler(next HandlerFunc) HandlerFunc {
 	}
 }
 
-// Route adds a resource route (method + path) and its handler to the router.
-// method is the HTTP method verb (GET, POST, ...).
-// path is the URI path and optional matching expressions.
-// h is the handler function with signature HandlerFunc (see Filter).
-// filters are route-level filters run before the handler.
-// Returns the resource itself for chaining.
-//
-// If the resource has its own filters, these are prepended to the filters list,
-// resource-level filters will run before route-level filters.
+/*
+Route adds a resource route (method + path) and its handler to the router.
+method is the HTTP method verb (GET, POST, ...).
+Returns the resource itself for chaining.
+
+path is the URI path and optional matching expressions.
+
+h is the handler function with signature HandlerFunc (see Filter).
+
+filters are route-level filters run before the handler.
+
+If the resource has its own filters, these are prepended to the filters list,
+resource-level filters will run before route-level filters.
+*/
 func (self *Resource) Route(method, path string, h HandlerFunc, filters ...Filter) *Resource {
 	handler := self.relHandler(h)
 	if filters != nil {
@@ -158,24 +187,47 @@ func (self *Resource) PUT(path string, h HandlerFunc, filters ...Filter) *Resour
 	return self.Route("PUT", path, h, filters...)
 }
 
-// CRUD creates Create/Read/Update/Delete routes using the handlers in Resourcer.
-// pse is a route path segment expression (PSE).
-// It returns the resource itself for chaining.
-//
-// For example, for a service under "/api/", given the Resourcer object "users",
-// CRUD("{uint:id}") will add the following routes:
-//
-//		GET /api/users                => use handler users.Index()
-//		GET /api/users/{uint:id}      => use handler users.Read()
-//		POST /api/users               => use handler users.Create()
-//		PUT /api/users                => Status: 405 Method not allowed
-//		PUT /api/users/{uint:id}      => use handler users.Update()
-//		DELETE /api/users             => Status: 405 Method not allowed
-//		DELETE /api/users/{uint:id}   => use handler users.Delete()
-//
-// Other uses of PUT/PATCH/DELETE are dependent on the application, so CRUD()
-// won't make any assumptions for those.
+/*
+CRUD adds Create/Read/Update/Delete routes using the handlers in CRUD interface,
+if the Resource implements it. A typical resource will implement one or all of the
+handlers, but those that aren't implemented should respond with
+"Method Not Allowed" or "Not Implemented".
+
+pse is a route path segment expression (PSE) - see Router for details. If pse is
+empty string "", then CRUD() will guess a value or use "{item}".
+
+Example:
+
+	type Jobs struct{}
+
+	// functions needed for Jobs to implement CRUD.
+	func (l *Jobs) Create (rw relax.ResponseWriter, re *relax.Request) {}
+	func (l *Jobs) Read (rw relax.ResponseWriter, re *relax.Request) {}
+	func (l *Jobs) Update (rw relax.ResponseWriter, re *relax.Request) {}
+	func (l *Jobs) Delete (rw relax.ResponseWriter, re *relax.Request) {}
+
+	// CRUD() will add routes handled using "{uint:ticketid}" as PSE.
+	myservice.Resource(&Jobs{}).CRUD("{uint:ticketid}")
+
+The following routes are added:
+
+	GET /api/jobs/{uint:ticketid}     => use handler jobs.Read()
+	POST /api/jobs                    => use handler jobs.Create()
+	PUT /api/jobs                     => Status: 405 Method not allowed
+	PUT /api/jobs/{uint:ticketid}     => use handler jobs.Update()
+	DELETE /api/jobs                  => Status: 405 Method not allowed
+	DELETE /api/jobs/{uint:ticketid}  => use handler jobs.Delete()
+
+Specific uses of PUT/PATCH/DELETE are dependent on the application, so CRUD()
+won't make any assumptions for those.
+*/
 func (self *Resource) CRUD(pse string) *Resource {
+	crud, ok := self.collection.(CRUD)
+	if !ok {
+		Log.Printf(LOG_ERR, "%T doesn't implement CRUD", self.collection)
+		return self
+	}
+
 	if pse == "" {
 		// use resource collection name
 		pse = "{" + strings.TrimRight(self.name, "s") + "}"
@@ -184,28 +236,35 @@ func (self *Resource) CRUD(pse string) *Resource {
 		}
 	}
 
-	self.Route("GET", "", (self.collection).(Resourcer).Index)
-	self.Route("GET", pse, (self.collection).(Resourcer).Read)
-	self.Route("POST", "", (self.collection).(Resourcer).Create)
+	Log.Println(LOG_DEBUG, "Adding CRUD routes...")
+
+	self.Route("GET", pse, crud.Read)
+	self.Route("POST", "", crud.Create)
 	self.Route("PUT", "", self.MethodNotAllowed)
-	self.Route("PUT", pse, (self.collection).(Resourcer).Update)
+	self.Route("PUT", pse, crud.Update)
 	self.Route("DELETE", "", self.MethodNotAllowed)
-	self.Route("DELETE", pse, (self.collection).(Resourcer).Delete)
+	self.Route("DELETE", pse, crud.Delete)
+
+	// FIXME: need to get correct URI template here from PSE
+	self.links = append(self.links, &Link{URI: self.getPath("{item}"), Rel: "edit"})
 
 	return self
 }
 
-// Resource creates a new resource under Service that accepts REST requests.
-// It will add an OPTIONS route that replies with an Allow header listing
-// the methods available, along other default headers.
-// This returns the new Resource object.
-//
-// collection is an object that implements the Resourcer interface.
-// filters are resource-level filters that are ran before a resource handler, but
-// after service-level filters.
-//
-// This function will panic if it can't determine the name of an collection
-// through reflection.
+/*
+Resource creates a new Resource object within a Service, and returns it.
+It will add an OPTIONS route that replies with an Allow header listing
+the methods available. Also, it will create a GET route to the handler in
+Resourcer.Index.
+
+collection is an object that implements the Resourcer interface.
+
+filters are resource-level filters that are ran before a resource handler, but
+after service-level filters.
+
+This function will panic if it can't determine the name of a collection
+through reflection.
+*/
 func (svc *Service) Resource(collection Resourcer, filters ...Filter) *Resource {
 	// reflect name from object's type
 	cs := fmt.Sprintf("%T", collection)
@@ -233,14 +292,17 @@ func (svc *Service) Resource(collection Resourcer, filters ...Filter) *Resource 
 	// OPTIONS lists the methods allowed.
 	res.Route("OPTIONS", "", res.optionsHandler)
 
+	// GET on the collection will access the Index handler
+	res.Route("GET", "", collection.Index)
+
+	// Relation: index -> resource.path
+	res.links = append(res.links, &Link{URI: res.getPath(name), Rel: "index"})
+
 	// update service resources list
 	svc.resources = append(svc.resources, res)
 
 	// Relation: resource -> service
-	svc.links = append(svc.links, &Link{URI: res.path, Rel: svc.getPath("rel/"+name, true)})
-
-	// Relation: index -> resource.path
-	res.links = append(res.links, &Link{URI: res.path, Rel: "index"})
+	svc.links = append(svc.links, &Link{URI: svc.getPath(name, true), Rel: svc.getPath("rel/"+name, true)})
 
 	return res
 }
