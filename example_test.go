@@ -132,16 +132,15 @@ func Example_basic() {
 	}
 
 	// create a service under /api/
-	svc := relax.NewService("/api", &relax.FilterGzip{}, &relax.FilterETag{})
+	svc := relax.NewService("http://api.codehack.com/v1", &relax.FilterETag{})
 
 	// service-level filters (these could go inside NewService())
 	svc.Use(&relax.FilterCORS{
 		AllowAnyOrigin:   true,
 		AllowCredentials: true,
 	})
-	// method override support
-	svc.Use(&relax.FilterOverride{})
-	svc.Use(&relax.FilterOverride{})
+	svc.Use(&relax.FilterGzip{})     // on-the-fly gzip encoding
+	svc.Use(&relax.FilterOverride{}) // method override support
 
 	// I prefer pretty indentation.
 	json := relax.NewEncoderJSON()

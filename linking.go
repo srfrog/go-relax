@@ -14,6 +14,7 @@ import (
 // between resources that are not format specific. For details see
 // https://tools.ietf.org/html/rfc5988
 // http://tools.ietf.org/html/draft-nottingham-linked-cache-inv-04
+// http://tools.ietf.org/html/rfc6570
 type Link struct {
 	URI      string `json:"href"`
 	Rel      string `json:"rel"`

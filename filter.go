@@ -9,9 +9,24 @@ package relax
 // this type.
 type HandlerFunc func(ResponseWriter, *Request)
 
-// All filters must implement the Filter interface.
-// Filter functions are inter-connected functions that are executed in FILO
-// order. They are linked together via closures.
+/*
+Filter
+
+Relax favors the use of filters over middleware to pre and post-process all requests.
+Filters are function closures that are chained in FILO (First-In Last-Out) order.
+At any time, a filter can stop a request by returning before the next chained filter
+is called. The final link points to the resource handler.
+
+Filters are run at different times during a request, and in order: Service, Resource and, Route.
+Service filters are run before resource filters, and resource filters before route filters.
+This allows some granularity to filters.
+
+Relax comes with filters that provide basic functionality needed by most REST API's.
+Some included filters: CORS, method override, security, basic auth and content negotiation.
+Adding filters is a matter of creating new objects that implement the Filter interface.
+The position of the ``next()`` handler function is important to the effect of the particular
+filter execution.
+*/
 type Filter interface {
 	// Run executes the current filter event in a chain.
 	// It takes a HandlerFunc function argument, which is executed within the

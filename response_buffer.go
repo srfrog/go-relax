@@ -113,6 +113,8 @@ func (self *responseBuffer) Free() {
 func NewResponseBuffer(rw ResponseWriter) (*responseWriter, *responseBuffer) {
 	rb := reponseBufferPool.Get().(*responseBuffer)
 	rb.ResponseWriter = rw
-	rb.header = make(http.Header)
-	return &responseWriter{ResponseWriter: rb, Encode: rw.(*responseWriter).Encode}, rb
+	rb.header = rw.Header()
+	rr := newResponseWriter(rb)
+	rr.Encode = rw.(*responseWriter).Encode
+	return rr, rb
 }

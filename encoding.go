@@ -15,8 +15,34 @@ import (
 // set for decoding payload.
 var ErrBodyTooLarge = errors.New("Encoder: Body too large")
 
-// Objects that implement the Encoder interface provide new content encoding
-// formats.
+/*
+Encoder
+
+Objects that implement the Encoder interface provide new content encoding formats.
+
+Once a request enters service context, all responses are encoded according to the
+assigned encoder. Relax includes support for JSON encoding. Other types of encoding
+can be added by implementing the Encoder interface.
+
+In common, all requests may send an HTTP Accept header with the form:
+
+	Accept: application/vnd.relax+{encoding-type}; version=XX; lang=YY
+
+Where encoding-type is the short notation of the media encoding format, for
+example, "json" or "xml". ``version`` is an optional string to the content version;
+API version. ``lang`` is the preferred language notation in RFC 5646 format, en-US,
+for example. version and lang are optional but encoding-type is not. If the Accept
+header is not sent, then encoding is assumed to be satisfied by the encoder's
+default representation, which is "application/json".
+
+Info passed down from content negotiation with the Request.Info object:
+
+	re.Info.Get("content.encoding") // MIME type used for encoding. e.g., "application/json"
+	re.Info.Get("content.version") // requested version, or "current"
+	re.Info.Get("content.language") // requested language, or "en_US"
+
+See also, http://tools.ietf.org/html/rfc5646; tags to identify languages.
+*/
 type Encoder interface {
 	// Accept returns the media type used in HTTP Accept header.
 	Accept() string
