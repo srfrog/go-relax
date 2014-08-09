@@ -9,14 +9,14 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // FilterETag generates an entity-tag header "ETag" for body content of a response.
 // It will use pre-generated etags from the underlying filters or handlers, if availble.
 // Optionally, it will also handle the conditional response based on If-Match
 // and If-None-Match checks on specific entity-tag values.
-// This implementation follows the description from RFC 7232 -
-// http://tools.ietf.org/html/rfc7232
+// This implementation follows the recommendation in http://tools.ietf.org/html/rfc7232
 type FilterETag struct {
 	// DisableConditionals will make this filter ignore the values from the headers
 	// If-None-Match and If-Match and not do conditional entity tests. An ETag will
@@ -25,8 +25,8 @@ type FilterETag struct {
 	DisableConditionals bool
 }
 
-// strongCmp does strong comparison of If-Match entity values.
-func strongCmp(etags, etag string) bool {
+// etagStrongCmp does strong comparison of If-Match entity values.
+func etagStrongCmp(etags, etag string) bool {
 	if etag == "" || strings.HasPrefix(etag, "W/") {
 		return false
 	}
@@ -38,74 +38,120 @@ func strongCmp(etags, etag string) bool {
 	return false
 }
 
-// Run runs the filter and passes down the following Info:
-//		re.Info.Get("etag.enabled") // boolean; true if etag is enabled (always)
-func (self *FilterETag) Run(next HandlerFunc) HandlerFunc {
-	return func(rw ResponseWriter, re *Request) {
-		var etag string
-		re.Info.Set("etag.enabled", true)
+// etagWeakCmp does weak comparison of If-None-Match entity values.
+func etagWeakCmp(etags, etag string) bool {
+	if etag == "" {
+		return false
+	}
+	return strings.Contains(etags, strings.Trim(etag, `"`))
+}
 
-		rb, buf := NewResponseBuffer(rw)
-		next(rb, re)
+// Run runs the filter and passes down the following Info:
+//		ctx.Info.Get("etag.enabled") // boolean; true if etag is enabled (always)
+func (f *FilterETag) Run(next HandlerFunc) HandlerFunc {
+	return func(ctx *Context) {
+		var etag string
+		ctx.Info.Set("etag.enabled", true)
+
+		next(ctx.Capture())
+		defer ctx.Release()
 
 		// Do not pass GO. Do not collect $200
-		if buf.Status() < 200 || buf.Status() == http.StatusNoContent ||
-			(buf.Status() > 299 && buf.Status() != http.StatusPreconditionFailed) ||
-			!strings.Contains("DELETE GET HEAD PATCH POST PUT", re.Method) {
-			Log.Printf(LOG_DEBUG, "%s FilterETag: no ETag generated (status=%d method=%s)", re.Info.Get("context.request_id"), buf.Status(), re.Method)
+		if ctx.Buffer.Status() < 200 || ctx.Buffer.Status() == http.StatusNoContent ||
+			(ctx.Buffer.Status() > 299 && ctx.Buffer.Status() != http.StatusPreconditionFailed) ||
+			!strings.Contains("DELETE GET HEAD PATCH POST PUT", ctx.Request.Method) {
+			Log.Printf(LOG_DEBUG, "%s FilterETag: no ETag generated (status=%d method=%s)", ctx.Info.Get("context.request_id"), ctx.Buffer.Status(), ctx.Request.Method)
 			goto Finish
 		}
 
-		etag = buf.Header().Get("ETag")
+		etag = ctx.Buffer.Header().Get("ETag")
 
-		if (re.Method == "GET" || re.Method == "HEAD") && buf.Status() == http.StatusOK {
+		if (ctx.Request.Method == "GET" || ctx.Request.Method == "HEAD") && ctx.Buffer.Status() == http.StatusOK {
 			if etag == "" {
-				// change etag when using compression
 				alter := ""
-				if ct := re.Info.Get("compress.type"); ct != "" {
-					alter = "-" + ct
+				// Change etag when using content encoding.
+				// XXX: support multiple encodings?
+				if ce := ctx.Buffer.Header().Get("Content-Encoding"); ce != "" {
+					alter = "-" + ce
 				}
-				etag = fmt.Sprintf(`"%x%s"`, sha1.Sum(buf.Bytes()), alter)
+				etag = fmt.Sprintf(`"%x%s"`, sha1.Sum(ctx.Buffer.Bytes()), alter)
 			}
 		}
 
-		if !self.DisableConditionals {
-			ifnone, ifmatch := re.Header.Get("If-None-Match"), re.Header.Get("If-Match")
-			if ifmatch != "" && ((ifmatch == "*" && etag == "") || !strongCmp(ifmatch, etag)) {
-				/* FIXME: need to verify Status per request.
-				if strings.Contains("DELETE PATCH POST PUT", re.Method) && buf.Status() != http.StatusPreconditionFailed {
-					// XXX: we cant confirm it's the same resource item without re-GET'ing it.
-					// XXX: maybe etag should be changed from strong to weak.
-					etag = ""
-					Log.Printf(LOG_DEBUG, "%s FilterETag: no ETag generated (status=%d method=%s)", re.Info.Get("context.request_id"), buf.Status(), re.Method)
-					goto Finish
-				}
+		if !f.DisableConditionals {
+			// If-Match
+			ifmatch := ctx.Request.Header.Get("If-Match")
+			if ifmatch != "" && ((ifmatch == "*" && etag == "") || !etagStrongCmp(ifmatch, etag)) {
+				/*
+					// FIXME: need to verify Status per request.
+					if strings.Contains("DELETE PATCH POST PUT", ctx.Request.Method) && ctx.Buffer.Status() != http.StatusPreconditionFailed {
+						// XXX: we cant confirm it's the same resource item without re-GET'ing it.
+						// XXX: maybe etag should be changed from strong to weak.
+						etag = ""
+						Log.Printf(LOG_DEBUG, "%s FilterETag: no ETag generated for match (status=%d method=%s)", ctx.Info.Get("context.request_id"), ctx.Buffer.Status(), ctx.Request.Method)
+						goto Finish
+					}
 				*/
-				rw.WriteHeader(http.StatusPreconditionFailed)
-				buf.Free()
+				// ctx.Buffer.Reset()
+				// ctx.Buffer.WriteHeader(http.StatusPreconditionFailed)
+				ctx.WriteHeader(http.StatusPreconditionFailed)
+				ctx.Buffer.Free()
 				return
 			}
 
-			// BUG(TODO): FilterETag should have support for conditionals If-Modified-Since,
-			// If-Unmodified-Since, and/or Range/If-Range.
-
-			if ifnone != "" && ((ifnone == "*" && etag != "") || strings.Contains(ifnone, etag)) {
-				defer buf.Free()
-				if re.Method == "GET" || re.Method == "HEAD" {
-					rw.Header().Set("ETag", etag)
-					rw.Header().Add("Vary", "If-None-Match")
-					rw.WriteHeader(http.StatusNotModified)
+			// If-Unmodified-Since
+			ifunmod := ctx.Request.Header.Get("If-Unmodified-Since")
+			if ifmatch == "" && ifunmod != "" {
+				modtime, _ := time.Parse(time.RFC1123, ifunmod)
+				lastmod, _ := time.Parse(time.RFC1123, ctx.Buffer.Header().Get("Last-Modified"))
+				if !modtime.IsZero() && !lastmod.IsZero() && lastmod.After(modtime) {
+					// ctx.Buffer.Reset()
+					// ctx.Buffer.WriteHeader(http.StatusPreconditionFailed)
+					ctx.WriteHeader(http.StatusPreconditionFailed)
+					ctx.Buffer.Free()
 					return
 				}
-				rw.WriteHeader(http.StatusPreconditionFailed)
+			}
+
+			// If-None-Match
+			ifnone := ctx.Request.Header.Get("If-None-Match")
+			if ifnone != "" && ((ifnone == "*" && etag != "") || etagWeakCmp(ifnone, etag)) {
+				// defer ctx.Buffer.Reset()
+				if ctx.Request.Method == "GET" || ctx.Request.Method == "HEAD" {
+					ctx.Buffer.Header().Set("ETag", etag)
+					ctx.Buffer.Header().Add("Vary", "If-None-Match")
+					ctx.Buffer.WriteHeader(http.StatusNotModified)
+					ctx.Buffer.Reset()
+					return
+				}
+				// ctx.Buffer.WriteHeader(http.StatusPreconditionFailed)
+				ctx.WriteHeader(http.StatusPreconditionFailed)
+				ctx.Buffer.Free()
 				return
 			}
+
+			// If-Modified-Since
+			ifmods := ctx.Request.Header.Get("If-Modified-Since")
+			if ifnone == "" && ifmods != "" && !(ctx.Request.Method == "GET" || ctx.Request.Method == "HEAD") {
+				modtime, _ := time.Parse(time.RFC1123, ifmods)
+				lastmod, _ := time.Parse(time.RFC1123, ctx.Buffer.Header().Get("Last-Modified"))
+				if !modtime.IsZero() && !lastmod.IsZero() && (lastmod.Before(modtime) || lastmod.Equal(modtime)) {
+					if etag != "" {
+						ctx.Buffer.Header().Set("ETag", etag)
+						ctx.Buffer.Header().Add("Vary", "If-None-Match")
+					}
+					ctx.Buffer.Header().Add("Vary", "If-Modified-Since")
+					ctx.Buffer.WriteHeader(http.StatusNotModified)
+					ctx.Buffer.Reset()
+					return
+				}
+			}
 		}
+
 	Finish:
 		if etag != "" {
-			buf.Header().Set("ETag", etag)
-			buf.Header().Add("Vary", "If-None-Match")
+			ctx.Buffer.Header().Set("ETag", etag)
+			ctx.Buffer.Header().Add("Vary", "If-None-Match")
 		}
-		buf.Flush()
 	}
 }

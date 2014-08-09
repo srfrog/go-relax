@@ -63,40 +63,40 @@ func getUserPass(header string) ([]string, error) {
 // Run runs the filter and passes down the following Info:
 //		re.Info.Get("auth.user") // auth user
 //		re.Info.Get("auth.type") // auth scheme type. e.g., "basic"
-func (self *FilterAuthBasic) Run(next HandlerFunc) HandlerFunc {
-	if self.Realm == "" {
+func (f *FilterAuthBasic) Run(next HandlerFunc) HandlerFunc {
+	if f.Realm == "" {
 		Log.Println(LOG_WARN, "FilterAuthBasic: using default realm")
-		self.Realm = "Authorization Required"
+		f.Realm = "Authorization Required"
 	}
-	self.Realm = strings.Replace(self.Realm, `"'`, "", -1)
+	f.Realm = strings.Replace(f.Realm, `"'`, "", -1)
 
-	if self.Authenticate == nil {
+	if f.Authenticate == nil {
 		Log.Println(LOG_ALERT, "FilterAuthBasic: denying all access; no authenticate function set")
-		self.Authenticate = denyAllAccess
+		f.Authenticate = denyAllAccess
 	}
 
-	return func(rw ResponseWriter, re *Request) {
-		header := re.Header.Get("Authorization")
+	return func(ctx *Context) {
+		header := ctx.Request.Header.Get("Authorization")
 		if header == "" {
-			MustAuthenticate(rw, "Basic realm=\""+self.Realm+"\"")
+			MustAuthenticate(ctx, "Basic realm=\""+f.Realm+"\"")
 			return
 		}
 
 		userpass, err := getUserPass(header)
 		if err != nil {
-			http.Error(rw, err.Error(), http.StatusBadRequest)
+			http.Error(ctx, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		if !self.Authenticate(userpass[0], userpass[1]) {
-			MustAuthenticate(rw, "Basic realm=\""+self.Realm+"\"")
+		if !f.Authenticate(userpass[0], userpass[1]) {
+			MustAuthenticate(ctx, "Basic realm=\""+f.Realm+"\"")
 			return
 		}
 
-		re.Info.Set("auth.user", userpass[0])
-		re.Info.Set("auth.type", "basic")
+		ctx.Info.Set("auth.user", userpass[0])
+		ctx.Info.Set("auth.type", "basic")
 
-		next(rw, re)
+		next(ctx)
 	}
 }
 

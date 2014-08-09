@@ -41,10 +41,10 @@ type FilterSecurity struct {
 	XFrameDisable bool
 
 	// XFrameOptions expected values are:
-	// 	"DENY"                // no rendering within a frame
+	//		"DENY"                // no rendering within a frame
 	//		"SAMEORIGIN"          // no rendering if origin mismatch
 	//		"ALLOW-FROM {origin}" // allow rendering if framed by frame loaded from {origin};
-	// 	                      // where {origin} is a top-level URL. ie., http//codehack.com
+	//			              // where {origin} is a top-level URL. ie., http//codehack.com
 	// Only one value can be used at a time.
 	// Defaults to "SAMEORIGIN"
 	XFrameOptions string
@@ -58,15 +58,15 @@ type FilterSecurity struct {
 	// HSTSDisable if false, will send a Strict-Transport-Security (HSTS) header
 	// with the respose, using the value in HSTSOptions. HSTS enforces secure
 	// connections to the server. http://tools.ietf.org/html/rfc6797
-	// If this server is not on a secure HTTPS/TLS connection, it will temporarily
+	// If the server is not on a secure HTTPS/TLS connection, it will temporarily
 	// change to true.
 	// Defaults to false.
 	HSTSDisable bool
 
 	// HSTSOptions are the values sent in an HSTS header.
 	// Expected values are one or both of:
-	// 	"max-age=delta"     // delta in seconds, the time this host is a known HSTS host
-	// 	"includeSubDomains" // HSTS policy applies to this domain and all subdomains.
+	//		"max-age=delta"     // delta in seconds, the time this host is a known HSTS host
+	//		"includeSubDomains" // HSTS policy applies to this domain and all subdomains.
 	// Defaults to "max-age=31536000; includeSubDomains"
 	HSTSOptions string
 
@@ -81,7 +81,7 @@ type FilterSecurity struct {
 	// Defaults to "no-store, must-revalidate"
 	CacheOptions string
 
-	// PragmaDisable if false and CacheDisable is fale, will send a Pragma header
+	// PragmaDisable if false and CacheDisable is false, will send a Pragma header
 	// with the response, using the value "no-cache".
 	// For details see http://tools.ietf.org/html/rfc7234#section-5.4
 	// Defaults to false.
@@ -89,49 +89,48 @@ type FilterSecurity struct {
 }
 
 // Run runs the filter
-func (self *FilterSecurity) Run(next HandlerFunc) HandlerFunc {
-	if self.UACheckErrMsg == "" {
-		self.UACheckErrMsg = securityUACheckErr
+func (f *FilterSecurity) Run(next HandlerFunc) HandlerFunc {
+	if f.UACheckErrMsg == "" {
+		f.UACheckErrMsg = securityUACheckErr
 	}
-	if self.XFrameOptions == "" {
-		self.XFrameOptions = securityXFrameDefault
+	if f.XFrameOptions == "" {
+		f.XFrameOptions = securityXFrameDefault
 	}
-	if self.HSTSOptions == "" {
-		self.HSTSOptions = securityHSTSDefault
+	if f.HSTSOptions == "" {
+		f.HSTSOptions = securityHSTSDefault
 	}
-	if self.CacheOptions == "" {
-		self.CacheOptions = securityCacheDefault
+	if f.CacheOptions == "" {
+		f.CacheOptions = securityCacheDefault
 	}
-	return func(rw ResponseWriter, re *Request) {
-		if !self.UACheckDisable {
-			ua := re.UserAgent()
+	return func(ctx *Context) {
+		if !f.UACheckDisable {
+			ua := ctx.Request.UserAgent()
 			if ua == "" || ua == "Go 1.1 package http" {
-				rw.Error(http.StatusForbidden, self.UACheckErrMsg)
+				ctx.Error(http.StatusForbidden, f.UACheckErrMsg)
 				return
 			}
 		}
 
-		if !self.XCTODisable {
-			rw.Header().Set("X-Content-Type-Options", "nosniff")
+		if !f.XCTODisable {
+			ctx.Header().Set("X-Content-Type-Options", "nosniff")
 		}
 
-		if !self.XFrameDisable {
-			rw.Header().Set("X-Frame-Options", self.XFrameOptions)
+		if !f.XFrameDisable {
+			ctx.Header().Set("X-Frame-Options", f.XFrameOptions)
 		}
 
 		// turn off HSTS if not on secure connection.
-		// XXX: check proxy header?
-		if !self.HSTSDisable && re.URL.Scheme == "https" && re.TLS != nil {
-			rw.Header().Set("Strict-Transport-Security", self.HSTSOptions)
+		if !f.HSTSDisable && ctx.IsSSL() {
+			ctx.Header().Set("Strict-Transport-Security", f.HSTSOptions)
 		}
 
-		if !self.CacheDisable {
-			rw.Header().Set("Cache-Control", self.CacheOptions)
-			if !self.PragmaDisable {
-				rw.Header().Set("Pragma", "no-cache")
+		if !f.CacheDisable {
+			ctx.Header().Set("Cache-Control", f.CacheOptions)
+			if !f.PragmaDisable {
+				ctx.Header().Set("Pragma", "no-cache")
 			}
 		}
 
-		next(rw, re)
+		next(ctx)
 	}
 }

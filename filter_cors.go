@@ -34,7 +34,7 @@ var (
 )
 
 // FilterCORS implements the Cross-Origin Resource Sharing (CORS) recommendation, as
-// described at http://www.w3.org/TR/cors/ (W3C).
+// described in http://www.w3.org/TR/cors/ (W3C).
 type FilterCORS struct {
 	// AllowOrigin is the list of URI patterns that are allowed to use the resource.
 	// The patterns consist of text with zero or more wildcards '*' '?' '+'.
@@ -102,14 +102,14 @@ type FilterCORS struct {
 	Strict bool
 }
 
-func (self *FilterCORS) corsHeaders(origin string) http.Header {
+func (f *FilterCORS) corsHeaders(origin string) http.Header {
 	headers := make(http.Header, 0)
-	if self.AllowCredentials {
+	if f.AllowCredentials {
 		headers.Set("Access-Control-Allow-Origin", origin)
 		headers.Set("Access-Control-Allow-Credentials", "true")
 		headers.Add("Vary", "Origin")
-	} else if self.Strict {
-		if self.AllowOrigin == nil {
+	} else if f.Strict {
+		if f.AllowOrigin == nil {
 			headers.Set("Access-Control-Allow-Origin", "null")
 		} else {
 			headers.Set("Access-Control-Allow-Origin", origin)
@@ -121,42 +121,42 @@ func (self *FilterCORS) corsHeaders(origin string) http.Header {
 	return headers
 }
 
-func (self *FilterCORS) handlePreflightRequest(origin, rmethod, rheaders string) (http.Header, error) {
-	if !strarr.Contains(simpleMethods, rmethod) && !strarr.Contains(self.AllowMethods, rmethod) {
+func (f *FilterCORS) handlePreflightRequest(origin, rmethod, rheaders string) (http.Header, error) {
+	if !strarr.Contains(simpleMethods, rmethod) && !strarr.Contains(f.AllowMethods, rmethod) {
 		return nil, &StatusError{http.StatusMethodNotAllowed, "Invalid method in preflight", nil}
 	}
 	if rheaders != "" {
 		arr := strarr.Map(strings.TrimSpace, strings.Split(rheaders, ","))
-		if len(strarr.Diff(arr, self.AllowHeaders)) == 0 {
+		if len(strarr.Diff(arr, f.AllowHeaders)) == 0 {
 			return nil, &StatusError{http.StatusForbidden, "Invalid header in preflight", nil}
 		}
 	}
 
-	headers := self.corsHeaders(origin)
-	if self.MaxAge > 0 {
-		headers.Set("Access-Control-Max-Age", strconv.Itoa(self.MaxAge))
+	headers := f.corsHeaders(origin)
+	if f.MaxAge > 0 {
+		headers.Set("Access-Control-Max-Age", strconv.Itoa(f.MaxAge))
 	}
 	// BUG(TODO): FilterCORS needs preflight step 9 & 10 checks (too strict?)
-	if self.AllowMethods != nil {
-		headers.Set("Access-Control-Allow-Methods", strings.Join(self.AllowMethods, ", "))
+	if f.AllowMethods != nil {
+		headers.Set("Access-Control-Allow-Methods", strings.Join(f.AllowMethods, ", "))
 	}
-	if self.AllowHeaders != nil {
-		headers.Set("Access-Control-Allow-Headers", strings.Join(self.AllowHeaders, ", "))
+	if f.AllowHeaders != nil {
+		headers.Set("Access-Control-Allow-Headers", strings.Join(f.AllowHeaders, ", "))
 	}
 	headers.Set("Content-Length", "0")
 
 	return headers, nil
 }
 
-func (self *FilterCORS) handleSimpleRequest(origin string) http.Header {
-	headers := self.corsHeaders(origin)
-	if len(self.ExposeHeaders) > 0 {
-		headers.Set("Access-Control-Expose-Headers", strings.Join(self.ExposeHeaders, ", "))
+func (f *FilterCORS) handleSimpleRequest(origin string) http.Header {
+	headers := f.corsHeaders(origin)
+	if len(f.ExposeHeaders) > 0 {
+		headers.Set("Access-Control-Expose-Headers", strings.Join(f.ExposeHeaders, ", "))
 	}
 	return headers
 }
 
-func (self *FilterCORS) isOriginAllowed(origin string) bool {
+func (f *FilterCORS) isOriginAllowed(origin string) bool {
 	for _, re := range allowOriginRegexp {
 		if re.MatchString(origin) {
 			return true
@@ -166,27 +166,27 @@ func (self *FilterCORS) isOriginAllowed(origin string) bool {
 }
 
 // Run runs the filter and passes down the following Info:
-//		re.Info.Get("cors.request") // boolean, whether or not this was a CORS request.
-//		re.Info.Get("cors.origin") // Origin of the request, if CORS
-func (self *FilterCORS) Run(next HandlerFunc) HandlerFunc {
-	if self.AllowMethods == nil {
-		self.AllowMethods = allowMethodsDefault
+//		ctx.Info.Get("cors.request") // boolean, whether or not this was a CORS request.
+//		ctx.Info.Get("cors.origin") // Origin of the request, if CORS
+func (f *FilterCORS) Run(next HandlerFunc) HandlerFunc {
+	if f.AllowMethods == nil {
+		f.AllowMethods = allowMethodsDefault
 	}
-	if self.AllowHeaders == nil {
-		self.AllowHeaders = allowHeadersDefault
+	if f.AllowHeaders == nil {
+		f.AllowHeaders = allowHeadersDefault
 	}
-	if self.ExposeHeaders == nil {
-		self.ExposeHeaders = exposeHeadersDefault
+	if f.ExposeHeaders == nil {
+		f.ExposeHeaders = exposeHeadersDefault
 	}
-	if self.MaxAge == 0 {
-		self.MaxAge = defaultCORSMaxAge
+	if f.MaxAge == 0 {
+		f.MaxAge = defaultCORSMaxAge
 	}
-	self.AllowMethods = strarr.Map(strings.ToUpper, self.AllowMethods)
-	self.AllowHeaders = strarr.Map(http.CanonicalHeaderKey, self.AllowHeaders)
-	self.ExposeHeaders = strarr.Map(http.CanonicalHeaderKey,
-		strarr.Diff(self.ExposeHeaders, simpleHeaders))
+	f.AllowMethods = strarr.Map(strings.ToUpper, f.AllowMethods)
+	f.AllowHeaders = strarr.Map(http.CanonicalHeaderKey, f.AllowHeaders)
+	f.ExposeHeaders = strarr.Map(http.CanonicalHeaderKey,
+		strarr.Diff(f.ExposeHeaders, simpleHeaders))
 
-	for _, v := range self.AllowOrigin {
+	for _, v := range f.AllowOrigin {
 		str := regexp.QuoteMeta(strings.ToLower(v))
 		str = strings.Replace(str, `\+`, `.+`, -1)
 		str = strings.Replace(str, `\*`, `.*`, -1)
@@ -195,68 +195,71 @@ func (self *FilterCORS) Run(next HandlerFunc) HandlerFunc {
 		allowOriginRegexp = append(allowOriginRegexp, regexp.MustCompile(str))
 	}
 
-	return func(rw ResponseWriter, re *Request) {
-		origin := re.Header.Get("Origin")
+	return func(ctx *Context) {
+		origin := ctx.Request.Header.Get("Origin")
 
-		re.Info.Set("cors.request", false)
+		ctx.Info.Set("cors.request", false)
 
 		// This is not a CORS request, carry on.
 		if origin == "" {
-			next(rw, re)
+			next(ctx)
 			return
 		}
 
-		if !self.AllowAnyOrigin && !self.isOriginAllowed(origin) {
-			if self.Strict {
-				Log.Printf(LOG_DEBUG, "%s FilterCORS: origin not allowed %q", re.Info.Get("context.request_id"), origin)
-				rw.Error(http.StatusForbidden, "Invalid CORS origin")
+		if !f.AllowAnyOrigin && !f.isOriginAllowed(origin) {
+			if f.Strict {
+				Log.Printf(LOG_DEBUG, "%s FilterCORS: origin not allowed %q", ctx.Info.Get("context.request_id"), origin)
+				ctx.Error(http.StatusForbidden, "Invalid CORS origin")
 				return
 			}
-			next(rw, re)
+			next(ctx)
 			return
 		}
 
 		// Check that Origin: is sane and does not match Host:
 		// http://www.w3.org/TR/cors/#resource-security
-		if self.Strict {
+		if f.Strict {
 			u, err := url.ParseRequestURI(origin)
 			if err != nil {
-				rw.Error(http.StatusBadRequest, err.Error())
+				ctx.Error(http.StatusBadRequest, err.Error())
 				return
 			}
-			if re.Host == u.Host || u.Path != "" || !strings.HasPrefix(u.Scheme, "http") {
-				rw.Error(http.StatusBadRequest, "Invalid CORS origin syntax")
+			if ctx.Request.Host == u.Host || u.Path != "" || !strings.HasPrefix(u.Scheme, "http") {
+				ctx.Error(http.StatusBadRequest, "Invalid CORS origin syntax")
 				return
 			}
 		}
 
 		// Method requested
-		method := re.Header.Get("Access-Control-Request-Method")
+		method := ctx.Request.Header.Get("Access-Control-Request-Method")
 
 		// Preflight request
-		if re.Method == "OPTIONS" && method != "" {
-			headers, err := self.handlePreflightRequest(origin, method, re.Header.Get("Access-Control-Request-Headers"))
+		if ctx.Request.Method == "OPTIONS" && method != "" {
+			headers, err := f.handlePreflightRequest(origin, method, ctx.Request.Header.Get("Access-Control-Request-Headers"))
 			if err != nil {
-				rw.Error((err.(*StatusError)).Code, err.Error())
+				if (err.(*StatusError)).Code == http.StatusMethodNotAllowed {
+					ctx.Header().Set("Allow", strings.Join(f.AllowMethods, ", "))
+				}
+				ctx.Error(err.(*StatusError).Code, err.Error())
 				return
 			}
 			for k, v := range headers {
-				rw.Header()[k] = v
+				ctx.Header()[k] = v
 			}
-			rw.WriteHeader(http.StatusNoContent)
+			ctx.WriteHeader(http.StatusNoContent)
 			return
 		}
 
 		// Simple request
-		headers := self.handleSimpleRequest(origin)
+		headers := f.handleSimpleRequest(origin)
 		for k, v := range headers {
-			rw.Header()[k] = v
+			ctx.Header()[k] = v
 		}
 
 		// let other downstream filters know that this is a CORS request
-		re.Info.Set("cors.request", true)
-		re.Info.Set("cors.origin", origin)
+		ctx.Info.Set("cors.request", true)
+		ctx.Info.Set("cors.origin", origin)
 
-		next(rw, re)
+		next(ctx)
 	}
 }

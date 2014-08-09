@@ -13,16 +13,13 @@ import (
 )
 
 /*
-Router
-
-The routing system is modular and can be replaced by creating an object that implements
-the Router interface. This interface defines two functions: one that adds routes and
-another that finds a handle to a resource.
+Router defines the routing system. Objects that implement it have functions
+that add routes, find a handle to resources and provide information about routes.
 
 Relax's default router is trieRegexpRouter. It takes full routes, with HTTP method and path, and
 inserts them in a trie that can use regular expressions to match individual path segments.
 
-trieRegexpRouter's path segment expressions (PSE) are match strings that are pre-compiled as
+PSE: trieRegexpRouter's path segment expressions (PSE) are match strings that are pre-compiled as
 regular expressions. PSE's provide a simple layer of security when accepting values from
 the path. Each PSE is made out of a {type:varname} format, where type is the expected type
 for a value and varname is the name to give the variable that matches the value.
@@ -57,7 +54,7 @@ Some sample routes supported by trieRegexpRouter:
 
 	GET /api/cities/{geo:location}
 
-	PATCH /api/investments/\${float:dollars}/fund
+	PUT /api/investments/\${float:dollars}/fund
 
 Since PSE's are compiled to regexp, care must be taken to escape characters that
 might break the compilation.
@@ -67,22 +64,25 @@ type Router interface {
 	// return it. If no match is found, it should return an StatusError error which will
 	// be sent to the requester. The default errors ErrRouteNotFound and
 	// ErrRouteBadMethod cover the default cases.
-	FindHandler(*Request) (HandlerFunc, error)
+	FindHandler(*Context) (HandlerFunc, error)
 
 	// AddRoute is used to create new routes to resources. It expects the HTTP method
-	// (GET, POST, ...) followed by the resource path (service + resource + variables)
-	// and the handler function.
+	// (GET, POST, ...) followed by the resource path and the handler function.
 	AddRoute(string, string, HandlerFunc)
+
+	// PathMethods returns a comma-separated list of HTTP methods that are matched
+	// to a path. It will do PSE expansion.
+	PathMethods(string) string
 }
 
 // These are errors returned by the default routing engine. You are encouraged to
 // reuse them with your own routing engine.
 var (
-	// Returned when the path searched didn't reach a resource handler.
+	// ErrRouteNotFound is returned when the path searched didn't reach a resource handler.
 	ErrRouteNotFound = &StatusError{http.StatusNotFound, "That route was not found.", nil}
 
-	// The path did not match a given HTTP method.
-	ErrRouteBadMethod = &StatusError{http.StatusNotImplemented, "That method is not supported", nil}
+	// ErrRouteBadMethod is returned when the path did not match a given HTTP method.
+	ErrRouteBadMethod = &StatusError{http.StatusMethodNotAllowed, "That method is not supported", nil}
 )
 
 // pathRegexpCache is a cache of all compiled regexp's so they can be reused.
@@ -90,8 +90,10 @@ var pathRegexpCache = make(map[string]*regexp.Regexp, 0)
 
 // trieRegexpRouter implements Router with a trie that can store regular expressions.
 // root points to the top of the tree from which all routes are searched and matched.
+// methods is a list of all the methods used in routes.
 type trieRegexpRouter struct {
-	root *trieNode
+	root    *trieNode
+	methods []string
 }
 
 // trieNode contains the routing information.
@@ -115,7 +117,6 @@ type trieNode struct {
 
 // segmentExp compiles the pattern string into a regexp so it can used in a
 // path segment match. This function will panic if the regexp compilation fails.
-//
 // BUG(TODO): trieRegexpRouter has no support for custom regexp's for PSE's yet.
 func segmentExp(pattern string) *regexp.Regexp {
 	// turn "*" => "{wild}"
@@ -189,15 +190,16 @@ func segmentExp(pattern string) *regexp.Regexp {
 // AddRoute breaks a path into segments and inserts them in the tree. If a
 // segment contains matching {}'s then it is tried as a regexp segment, otherwise it is
 // treated as a regular string segment.
-func (self *trieRegexpRouter) AddRoute(method, path string, handler HandlerFunc) {
-	node := self.root
+// BUG(TODO): AddRoute should support absolute URI in path.
+func (router *trieRegexpRouter) AddRoute(method, path string, handler HandlerFunc) {
+	node := router.root
 	pseg := strings.Split(method+strings.TrimRight(path, "/"), "/")
 	for i := range pseg {
 		if (strings.Contains(pseg[i], "{") && strings.Contains(pseg[i], "}")) || strings.Contains(pseg[i], "*") {
 			if _, ok := pathRegexpCache[pseg[i]]; !ok {
 				pathRegexpCache[pseg[i]] = segmentExp(pseg[i])
 			}
-			node.numExp += 1
+			node.numExp++
 		}
 		if node.links[pseg[i]] == nil {
 			if node.links == nil {
@@ -214,51 +216,61 @@ func (self *trieRegexpRouter) AddRoute(method, path string, handler HandlerFunc)
 		Log.Println(LOG_DEBUG, "Add route:", method, path)
 	}
 	node.handler = handler
+
+	// update methods list
+	if !strings.Contains(strings.Join(router.methods, ","), method) {
+		router.methods = append(router.methods, method)
+	}
 }
 
 // matchSegment tries to match a path segment 'pseg' to the node's regexp links.
 // This function will return any path values matched so they can be used in
 // Request.PathValues.
-func (self *trieNode) matchSegment(pseg string, depth int, values *url.Values) *trieNode {
-	if self.numExp == 0 {
-		return self.links[pseg]
+func (node *trieNode) matchSegment(pseg string, depth int, values *url.Values) *trieNode {
+	if node.numExp == 0 {
+		return node.links[pseg]
 	}
-	for pexp := range self.links {
+	for pexp := range node.links {
 		rx := pathRegexpCache[pexp]
 		if rx == nil {
 			continue
 		}
 		// this prevents the matching to be side-tracked by smaller paths.
-		if depth > self.links[pexp].depth && self.links[pexp].links == nil {
+		if depth > node.links[pexp].depth && node.links[pexp].links == nil {
 			continue
 		}
 		m := rx.FindStringSubmatch(pseg)
 		if len(m) > 1 && m[0] == pseg {
-			sub := rx.SubexpNames()
-			for i, n := 1, len(*values)/2; i < len(m); i++ {
-				_n := fmt.Sprintf("_%d", n+i)
-				Log.Println(LOG_DEBUG, "[router] Path value:", _n, "=", m[i])
-				(*values).Set(_n, m[i])
-				if sub[i] != "" {
-					Log.Println(LOG_DEBUG, "[router] Path value:", sub[i], "=", m[i])
-					(*values).Add(sub[i], m[i])
+			if values != nil {
+				if *values == nil {
+					*values = make(url.Values)
+				}
+				sub := rx.SubexpNames()
+				for i, n := 1, len(*values)/2; i < len(m); i++ {
+					_n := fmt.Sprintf("_%d", n+i)
+					Log.Println(LOG_DEBUG, "[router] Path value:", _n, "=", m[i])
+					(*values).Set(_n, m[i])
+					if sub[i] != "" {
+						Log.Println(LOG_DEBUG, "[router] Path value:", sub[i], "=", m[i])
+						(*values).Add(sub[i], m[i])
+					}
 				}
 			}
-			return self.links[pexp]
+			return node.links[pexp]
 		}
 	}
-	return self.links[pseg]
+	return node.links[pseg]
 }
 
 // FindHandler returns a resource handler that matches the requested route; or
-// StatusError error if none matched.
-func (self *trieRegexpRouter) FindHandler(re *Request) (HandlerFunc, error) {
-	method := re.Method
+// an error (StatusError) if none found.
+func (router *trieRegexpRouter) FindHandler(ctx *Context) (HandlerFunc, error) {
+	method := ctx.Request.Method
 	if method == "HEAD" {
 		method = "GET"
 	}
-	node := self.root
-	pseg := strings.Split(method+strings.TrimRight(re.URL.Path, "/"), "/")
+	node := router.root
+	pseg := strings.Split(method+strings.TrimRight(ctx.Request.URL.Path, "/"), "/")
 	slen := len(pseg)
 	for i := range pseg {
 		if node == nil {
@@ -267,7 +279,7 @@ func (self *trieRegexpRouter) FindHandler(re *Request) (HandlerFunc, error) {
 			}
 			return nil, ErrRouteNotFound
 		}
-		node = node.matchSegment(pseg[i], slen, &re.PathValues)
+		node = node.matchSegment(pseg[i], slen, &ctx.PathValues)
 	}
 
 	if node == nil || node.handler == nil {
@@ -276,7 +288,32 @@ func (self *trieRegexpRouter) FindHandler(re *Request) (HandlerFunc, error) {
 	return node.handler, nil
 }
 
+// PathMethods returns a string with comma-separated HTTP methods that match
+// the path. This list is suitable for Allow header response. Note that this
+// function only lists the methods, not if they are allowed.
+func (router *trieRegexpRouter) PathMethods(path string) string {
+	var node *trieNode
+	methods := "HEAD" // cheat
+	pseg := strings.Split("*"+strings.TrimRight(path, "/"), "/")
+	slen := len(pseg)
+	for _, method := range router.methods {
+		node = router.root
+		pseg[0] = method
+		for i := range pseg {
+			if node == nil {
+				continue
+			}
+			node = node.matchSegment(pseg[i], slen, nil)
+		}
+		if node == nil || node.handler == nil {
+			continue
+		}
+		methods += ", " + method
+	}
+	return methods
+}
+
 // newRouter returns a new trieRegexpRouter object with an initialized tree.
 func newRouter() *trieRegexpRouter {
-	return &trieRegexpRouter{new(trieNode)}
+	return &trieRegexpRouter{root: new(trieNode)}
 }
