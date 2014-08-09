@@ -7,8 +7,7 @@ package xmlenc
 import (
 	"bytes"
 	"encoding/xml"
-	// "github.com/codehack/go-relax"
-	".."
+	"github.com/codehack/go-relax"
 	"io"
 	"io/ioutil"
 )

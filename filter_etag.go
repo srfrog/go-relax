@@ -30,7 +30,7 @@ func etagStrongCmp(etags, etag string) bool {
 	if etag == "" || strings.HasPrefix(etag, "W/") {
 		return false
 	}
-	for _, v := range strings.SplitAfter(etags, ",") {
+	for _, v := range strings.Split(etags, ",") {
 		if strings.TrimSpace(v) == etag {
 			return true
 		}
@@ -92,8 +92,6 @@ func (f *FilterETag) Run(next HandlerFunc) HandlerFunc {
 						goto Finish
 					}
 				*/
-				// ctx.Buffer.Reset()
-				// ctx.Buffer.WriteHeader(http.StatusPreconditionFailed)
 				ctx.WriteHeader(http.StatusPreconditionFailed)
 				ctx.Buffer.Free()
 				return
@@ -105,8 +103,6 @@ func (f *FilterETag) Run(next HandlerFunc) HandlerFunc {
 				modtime, _ := time.Parse(time.RFC1123, ifunmod)
 				lastmod, _ := time.Parse(time.RFC1123, ctx.Buffer.Header().Get("Last-Modified"))
 				if !modtime.IsZero() && !lastmod.IsZero() && lastmod.After(modtime) {
-					// ctx.Buffer.Reset()
-					// ctx.Buffer.WriteHeader(http.StatusPreconditionFailed)
 					ctx.WriteHeader(http.StatusPreconditionFailed)
 					ctx.Buffer.Free()
 					return
@@ -124,7 +120,6 @@ func (f *FilterETag) Run(next HandlerFunc) HandlerFunc {
 					ctx.Buffer.Reset()
 					return
 				}
-				// ctx.Buffer.WriteHeader(http.StatusPreconditionFailed)
 				ctx.WriteHeader(http.StatusPreconditionFailed)
 				ctx.Buffer.Free()
 				return

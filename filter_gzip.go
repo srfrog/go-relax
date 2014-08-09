@@ -60,6 +60,7 @@ func (f *FilterGzip) Run(next HandlerFunc) HandlerFunc {
 		next(ctx.Capture()) // start buffering
 
 		switch {
+		// this might happen when FilterETag runs after GZip
 		case ctx.Buffer.Status() == 304:
 			ctx.WriteHeader(304)
 			break
@@ -72,7 +73,6 @@ func (f *FilterGzip) Run(next HandlerFunc) HandlerFunc {
 		case strings.Contains(ctx.Buffer.Header().Get("Content-Encoding"), "gzip"):
 			Log.Printf(LOG_DEBUG, "%s FilterGzip: compression disabled (already gzip'ed)", ctx.Info.Get("context.request_id"))
 			break
-		// this happens when FilterETag runs after GZip
 		case ctx.Buffer.Len() < f.MinLength:
 			Log.Printf(LOG_DEBUG, "%s FilterGzip: compression disabled (content too small)", ctx.Info.Get("context.request_id"))
 			break
