@@ -231,15 +231,15 @@ func (svc *Service) Use(entities ...interface{}) *Service {
 		switch entity := e.(type) {
 		case Encoder:
 			svc.encoders[entity.Accept()] = entity
-			Log.Printf(LOG_DEBUG, "Use encoder: %T", entity)
+			Log.Printf(LogDebug, "Use encoder: %T", entity)
 		case Filter:
 			svc.filters = append(svc.filters, entity)
-			Log.Printf(LOG_DEBUG, "Use filter: %T", entity)
+			Log.Printf(LogDebug, "Use filter: %T", entity)
 		case Router:
 			svc.router = entity
-			Log.Printf(LOG_DEBUG, "Use router: %T", entity)
+			Log.Printf(LogDebug, "Use router: %T", entity)
 		default:
-			Log.Printf(LOG_NOTICE, "Unknown entity to use: %T", entity)
+			Log.Printf(LogNotice, "Unknown entity to use: %T", entity)
 		}
 	}
 	return svc
@@ -305,7 +305,7 @@ func NewService(uri string, entities ...interface{}) *Service {
 	}
 
 	if !u.IsAbs() {
-		Log.Printf(LOG_WARN, "Service URI %q is not absolute.", uri)
+		Log.Printf(LogWarn, "Service URI %q is not absolute.", uri)
 	}
 
 	// the service path must end (and begin) with "/", this way ServeMux can
@@ -327,7 +327,7 @@ func NewService(uri string, entities ...interface{}) *Service {
 		uptime:    time.Now(),
 	}
 
-	Log.Println(LOG_DEBUG, "New service:", u.String())
+	Log.Println(LogDebug, "New service:", u.String())
 
 	// Set the default encoder, EncoderJSON
 	svc.encoders["application/json"] = NewEncoderJSON()

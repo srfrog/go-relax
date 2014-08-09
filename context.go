@@ -235,15 +235,13 @@ func (ctx *Context) Status() int {
 Respond writes a response back to the client. A complete RESTful response
 should be contained within a structure.
 
-v is the object value to be encoded.
-
-code is an optional HTTP status code.
+'v' is the object value to be encoded. 'code' is an optional HTTP status code.
 
 If at any point the response fails (due to encoding or system issues), an
 error is returned but not written back.
 
 	type Message struct {
-		Status string `json:"status"`
+		Status int    `json:"status"`
 		Text   string `json:"text"`
 	} `json:"apimessage"`
 
@@ -256,7 +254,7 @@ func (ctx *Context) Respond(v interface{}, code ...int) error {
 	if err != nil {
 		// encoding failed, most likely we tried to encode something that hasn't
 		// been made marshable yet.
-		Log.Println(LOG_ALERT, "Response encoding failed:", err.Error())
+		Log.Println(LogAlert, "Response encoding failed:", err.Error())
 		// send a generic response because we can't send the real one.
 		http.Error(ctx, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return err
@@ -266,7 +264,7 @@ func (ctx *Context) Respond(v interface{}, code ...int) error {
 	}
 	_, err = ctx.Write(b)
 	if err != nil {
-		Log.Println(LOG_ALERT, "Response failed:", err.Error())
+		Log.Println(LogAlert, "Response failed:", err.Error())
 	}
 	return err
 }
@@ -275,11 +273,8 @@ func (ctx *Context) Respond(v interface{}, code ...int) error {
 Error sends an error response, with appropiate encoding. It basically calls
 Respond using a status code and wrapping the message in a StatusError object.
 
-code is the HTTP status code of the error.
-
-message is the actual error message or reason.
-
-details are additional details about this error.
+'code' is the HTTP status code of the error. 'message' is the actual error message
+or reason. 'details' are additional details about this error (optional).
 
 	type RouteDetails struct {
 		Method string `json:"method"`
@@ -295,5 +290,5 @@ func (ctx *Context) Error(code int, message string, details ...interface{}) {
 		response.Details = details[0]
 	}
 	ctx.Respond(response, code)
-	Log.Println(LOG_DEBUG, "Error response:", code, "=>", message)
+	Log.Println(LogDebug, "Error response:", code, "=>", message)
 }

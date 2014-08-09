@@ -208,7 +208,7 @@ func (f *FilterCORS) Run(next HandlerFunc) HandlerFunc {
 
 		if !f.AllowAnyOrigin && !f.isOriginAllowed(origin) {
 			if f.Strict {
-				Log.Printf(LOG_DEBUG, "%s FilterCORS: origin not allowed %q", ctx.Info.Get("context.request_id"), origin)
+				Log.Printf(LogDebug, "%s FilterCORS: origin not allowed %q", ctx.Info.Get("context.request_id"), origin)
 				ctx.Error(http.StatusForbidden, "Invalid CORS origin")
 				return
 			}

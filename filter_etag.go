@@ -60,7 +60,7 @@ func (f *FilterETag) Run(next HandlerFunc) HandlerFunc {
 		if ctx.Buffer.Status() < 200 || ctx.Buffer.Status() == http.StatusNoContent ||
 			(ctx.Buffer.Status() > 299 && ctx.Buffer.Status() != http.StatusPreconditionFailed) ||
 			!strings.Contains("DELETE GET HEAD PATCH POST PUT", ctx.Request.Method) {
-			Log.Printf(LOG_DEBUG, "%s FilterETag: no ETag generated (status=%d method=%s)", ctx.Info.Get("context.request_id"), ctx.Buffer.Status(), ctx.Request.Method)
+			Log.Printf(LogDebug, "%s FilterETag: no ETag generated (status=%d method=%s)", ctx.Info.Get("context.request_id"), ctx.Buffer.Status(), ctx.Request.Method)
 			goto Finish
 		}
 
@@ -88,7 +88,7 @@ func (f *FilterETag) Run(next HandlerFunc) HandlerFunc {
 						// XXX: we cant confirm it's the same resource item without re-GET'ing it.
 						// XXX: maybe etag should be changed from strong to weak.
 						etag = ""
-						Log.Printf(LOG_DEBUG, "%s FilterETag: no ETag generated for match (status=%d method=%s)", ctx.Info.Get("context.request_id"), ctx.Buffer.Status(), ctx.Request.Method)
+						Log.Printf(LogDebug, "%s FilterETag: no ETag generated for match (status=%d method=%s)", ctx.Info.Get("context.request_id"), ctx.Buffer.Status(), ctx.Request.Method)
 						goto Finish
 					}
 				*/

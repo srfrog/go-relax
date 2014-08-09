@@ -211,9 +211,9 @@ func (router *trieRegexpRouter) AddRoute(method, path string, handler HandlerFun
 	}
 
 	if node.handler != nil {
-		Log.Println(LOG_DEBUG, "Chg route:", method, path)
+		Log.Println(LogDebug, "Chg route:", method, path)
 	} else {
-		Log.Println(LOG_DEBUG, "Add route:", method, path)
+		Log.Println(LogDebug, "Add route:", method, path)
 	}
 	node.handler = handler
 
@@ -248,10 +248,10 @@ func (node *trieNode) matchSegment(pseg string, depth int, values *url.Values) *
 				sub := rx.SubexpNames()
 				for i, n := 1, len(*values)/2; i < len(m); i++ {
 					_n := fmt.Sprintf("_%d", n+i)
-					Log.Println(LOG_DEBUG, "[router] Path value:", _n, "=", m[i])
+					Log.Println(LogDebug, "[router] Path value:", _n, "=", m[i])
 					(*values).Set(_n, m[i])
 					if sub[i] != "" {
-						Log.Println(LOG_DEBUG, "[router] Path value:", sub[i], "=", m[i])
+						Log.Println(LogDebug, "[router] Path value:", sub[i], "=", m[i])
 						(*values).Add(sub[i], m[i])
 					}
 				}
