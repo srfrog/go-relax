@@ -132,7 +132,7 @@ func (svc *Service) Content(next HandlerFunc) HandlerFunc {
 			// If language parsing fails, continue with request. But we still log it.
 			// See https://tools.ietf.org/html/rfc7231#section-5.3.5
 			if err != nil {
-				Log.Println(LOG_DEBUG, "Language parsing failed:", err.Error())
+				Log.Println(LogDebug, "Language parsing failed:", err.Error())
 			} else {
 				// If content language is not listed, give it a competitive value for sanity.
 				// The value most likely is still "en" (English).

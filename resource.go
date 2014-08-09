@@ -20,7 +20,7 @@ is a namespace where all operations for that resource happen.
 	}
 
 	// This function is needed for Locations to implement Resourcer
-	func (l *Locations) Index (rw relax.ResponseWriter, re *relax.Request) {}
+	func (l *Locations) Index (ctx *Context) {}
 
 	loc := &Locations{City: "Scottsdale", Country: "US"}
 	myresource := service.Resource(loc)
@@ -182,10 +182,10 @@ empty string "", then CRUD() will guess a value or use "{item}".
 	type Jobs struct{}
 
 	// functions needed for Jobs to implement CRUD.
-	func (l *Jobs) Create (rw relax.ResponseWriter, re *relax.Request) {}
-	func (l *Jobs) Read (rw relax.ResponseWriter, re *relax.Request) {}
-	func (l *Jobs) Update (rw relax.ResponseWriter, re *relax.Request) {}
-	func (l *Jobs) Delete (rw relax.ResponseWriter, re *relax.Request) {}
+	func (l *Jobs) Create (ctx *Context) {}
+	func (l *Jobs) Read (ctx *Context) {}
+	func (l *Jobs) Update (ctx *Context) {}
+	func (l *Jobs) Delete (ctx *Context) {}
 
 	// CRUD() will add routes handled using "{uint:ticketid}" as PSE.
 	myservice.Resource(&Jobs{}).CRUD("{uint:ticketid}")
@@ -205,7 +205,7 @@ won't make any assumptions for those.
 func (r *Resource) CRUD(pse string) *Resource {
 	crud, ok := r.collection.(CRUD)
 	if !ok {
-		Log.Printf(LOG_ERR, "%T doesn't implement CRUD", r.collection)
+		Log.Printf(LogErr, "%T doesn't implement CRUD", r.collection)
 		return r
 	}
 
@@ -217,7 +217,7 @@ func (r *Resource) CRUD(pse string) *Resource {
 		}
 	}
 
-	Log.Println(LOG_DEBUG, "Adding CRUD routes...")
+	Log.Println(LogDebug, "Adding CRUD routes...")
 
 	r.Route("GET", pse, crud.Read)
 	r.Route("POST", "", crud.Create)
@@ -267,7 +267,7 @@ func (svc *Service) Resource(collection Resourcer, filters ...Filter) *Resource 
 		res.filters = append(res.filters, filters...)
 	}
 
-	Log.Println(LOG_DEBUG, "New resource:", res.path, "=>", len(filters), "filters")
+	Log.Println(LogDebug, "New resource:", res.path, "=>", len(filters), "filters")
 
 	// OPTIONS lists the methods allowed.
 	res.Route("OPTIONS", "", res.optionsHandler)

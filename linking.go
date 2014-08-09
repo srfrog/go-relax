@@ -46,7 +46,7 @@ func (l *Link) String() string {
 // LinkHeader returns a complete Link: header value that can be plugged
 // into http.Header().Add(). Use this when you don't need a Link object
 // for your relation, just a header.
-// uri is the URI of target
+// uri is the URI of target.
 // param is one or more name=value pairs for link values. if nil, will default
 // to rel="alternate" (as per RFC 4287).
 // Returns two strings: "Link","Link header spec"

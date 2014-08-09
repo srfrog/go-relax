@@ -108,7 +108,7 @@ func (u *Users) Delete(ctx *relax.Context) {
 
 // SampleHandler prints out all filter info, and responds with all path values.
 func SampleHandler(ctx *relax.Context) {
-	relax.Log.Println(relax.LOG_INFO, "SampleHandler", "Request:", ctx.Request.Method, ctx.Request.URL.Path)
+	relax.Log.Println(relax.LogInfo, "SampleHandler", "Request:", ctx.Request.Method, ctx.Request.URL.Path)
 	ctx.Respond(ctx.PathValues)
 }
 
@@ -116,7 +116,7 @@ func SampleHandler(ctx *relax.Context) {
 // for the users resource.
 func Example_basic() {
 	// set our log level to DEBUG for more detail
-	relax.Log.SetLevel(relax.LOG_DEBUG)
+	relax.Log.SetLevel(relax.LogDebug)
 
 	// create our resource object
 	users := &Users{Group: "Influential Scientists"}

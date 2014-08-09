@@ -6,43 +6,43 @@ import (
 	"os"
 )
 
-// LogLevel indicates the severity of an event from LOG_EMERG (most imporant)
-// to LOG_DEBUG (least important), use -1 to disable all logging.
+// LogLevel indicates the severity of an event from LogEmerg (most imporant)
+// to LogDebug (least important), use -1 to disable all logging.
 // Events that are greater than the current Logger.SetLevel value are ignored.
 // LogLevel values are based on Apache's LogLevel directive -
 // https://httpd.apache.org/docs/2.4/mod/core.html#loglevel
 type LogLevel int
 
-// Log level contants, 0 (LOG_EMERG) to 7 (LOG_DEBUG)
+// Log level contants, 0 (LogEmerg) to 7 (LogDebug)
 const (
-	LOG_EMERG  LogLevel = iota // emergency, system is unusable. Terminate.
-	LOG_ALERT                  // action must be taken immediately
-	LOG_CRIT                   // critical conditions
-	LOG_ERR                    // error conditions
-	LOG_WARN                   // warning conditions
-	LOG_NOTICE                 // normal but significant condition
-	LOG_INFO                   // informational
-	LOG_DEBUG                  // terse, detailed debugging message.
+	LogEmerg  LogLevel = iota // emergency, system is unusable. Terminate.
+	LogAlert                  // action must be taken immediately
+	LogCrit                   // critical conditions
+	LogErr                    // error conditions
+	LogWarn                   // warning conditions
+	LogNotice                 // normal but significant condition
+	LogInfo                   // informational
+	LogDebug                  // terse, detailed debugging message.
 )
 
 // String returns a string representation of the log level.
 func (l LogLevel) String() string {
 	switch l {
-	case LOG_EMERG:
+	case LogEmerg:
 		return "EMERG"
-	case LOG_ALERT:
+	case LogAlert:
 		return "ALERT"
-	case LOG_CRIT:
+	case LogCrit:
 		return "CRIT"
-	case LOG_ERR:
+	case LogErr:
 		return "ERROR"
-	case LOG_WARN:
+	case LogWarn:
 		return "WARN"
-	case LOG_NOTICE:
+	case LogNotice:
 		return "NOTICE"
-	case LOG_INFO:
+	case LogInfo:
 		return "INFO"
-	case LOG_DEBUG:
+	case LogDebug:
 		return "DEBUG"
 	}
 	return "???"
@@ -95,15 +95,15 @@ type logger struct {
 func (l *logger) LogLevel(level LogLevel) string {
 	var format string
 	switch level {
-	case LOG_EMERG, LOG_ALERT, LOG_CRIT:
+	case LogEmerg, LogAlert, LogCrit:
 		format = "\x1b[1;33;41m!%c!\x1b[0m "
-	case LOG_ERR:
+	case LogErr:
 		format = "\x1b[1;31m=%c=\x1b[0m "
-	case LOG_WARN:
+	case LogWarn:
 		format = "\x1b[1;33m=%c=\x1b[0m "
-	case LOG_NOTICE:
+	case LogNotice:
 		format = "\x1b[32m[%c]\x1b[0m "
-	case LOG_DEBUG:
+	case LogDebug:
 		format = "\x1b[34m[%c]\x1b[0m "
 	default:
 		format = "[%c] "
@@ -141,17 +141,17 @@ func (l *logger) SetLevel(level LogLevel) {
 
 // StatusLogLevel converts an HTTP status code into a log level value.
 // It returns one of the following levels:
-// codes 100-199 = LOG_INFO, codes 200-299 = LOG_NOTICE, codes 400-499 = LOG_WARN,
-// code 500+ = LOG_ERR
+// codes 100-199 = LogInfo, codes 200-299 = LogNotice, codes 400-499 = LogWarn,
+// code 500+ = LogErr
 func StatusLogLevel(code int) LogLevel {
-	level := LOG_INFO
+	level := LogInfo
 	switch {
 	case code >= 200 && code < 300:
-		level = LOG_NOTICE
+		level = LogNotice
 	case code >= 400 && code < 500:
-		level = LOG_WARN
+		level = LogWarn
 	case code >= 500:
-		level = LOG_ERR
+		level = LogErr
 	}
 	return level
 }
@@ -164,17 +164,17 @@ func Logging(logger Logger) {
 
 // DefaultLogger is a simple os.Stderr logger with levels and color. Each
 // log message is prefixed with one of the following color-coded strings based
-// on the event level. The initial log level is LOG_INFO.
+// on the event level. The initial log level is LogInfo.
 // Log level prefixes:
-// 	LOG_EMERG:  "!E!"
-// 	LOG_ALERT:  "!A!"
-// 	LOG_CRIT:   "!C!"
-// 	LOG_ERR:    "=E="
-// 	LOG_WARN:   "=W="
-// 	LOG_NOTICE: "[N]"
-// 	LOG_INFO:   "[I]"
-// 	LOG_DEBUG:  "[D]"
-var DefaultLogger = &logger{log.New(os.Stderr, "", log.LstdFlags), LOG_INFO}
+// 	LogEmerg:  "!E!"
+// 	LogAlert:  "!A!"
+// 	LogCrit:   "!C!"
+// 	LogErr:    "=E="
+// 	LogWarn:   "=W="
+// 	LogNotice: "[N]"
+// 	LogInfo:   "[I]"
+// 	LogDebug:  "[D]"
+var DefaultLogger = &logger{log.New(os.Stderr, "", log.LstdFlags), LogInfo}
 
 func init() {
 	Log = DefaultLogger

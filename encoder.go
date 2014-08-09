@@ -13,7 +13,7 @@ import (
 
 // ErrBodyTooLarge is returned when the read length exceeds the maximum size
 // set for decoding payload.
-var ErrBodyTooLarge = errors.New("Encoder: Body too large")
+var ErrBodyTooLarge = errors.New("encoder: Body too large")
 
 /*
 Encoder objects provide new data encoding formats.

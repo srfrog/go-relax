@@ -66,7 +66,7 @@ func (f *FilterOverride) Run(next HandlerFunc) HandlerFunc {
 					ctx.Error(http.StatusPreconditionFailed, "Must use "+method+" to override "+override)
 					return
 				}
-				Log.Println(LOG_DEBUG, "Method override:", method, "=>", override)
+				Log.Println(LogDebug, "Method override:", method, "=>", override)
 				ctx.Request.Method = override
 				ctx.Request.Header.Del(f.Header)
 				ctx.Info.Set("override.method", override)
