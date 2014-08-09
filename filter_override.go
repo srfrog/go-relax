@@ -8,57 +8,70 @@ import (
 	"net/http"
 )
 
-// FilterOverrideMethods specifies the methods can be overriden.
-// Format is FilterOverrideMethods["method"] = "override"
-var FilterOverrideMethods = map[string]string{
-	"DELETE":  "POST",
-	"OPTIONS": "GET",
-	"PATCH":   "POST",
-	"PUT":     "POST",
-}
-
 // FilterOverride changes the Request.Method if the client specifies
 // override via HTTP header or query. This allows clients with limited HTTP
 // verbs to send REST requests through GET/POST.
 type FilterOverride struct {
 	// Header expected for HTTP Method override
+	// Default: "X-HTTP-Method-Override"
 	Header string
 
 	// QueryVar is used if header can't be set
+	// Default: "_method"
 	QueryVar string
+
+	// Methods specifies the methods can be overriden.
+	// Format is Methods["method"] = "override".
+	// Default methods:
+	//		f.Methods = map[string]string{
+	//			"DELETE":  "POST",
+	//			"OPTIONS": "GET",
+	//			"PATCH":   "POST",
+	//			"PUT":     "POST",
+	//		}
+	Methods map[string]string
 }
 
 // Run runs the filter and passes down the following Info:
-//		re.Info.Get("override.method") // method replaced. e.g., "PATCH"
-func (self *FilterOverride) Run(next HandlerFunc) HandlerFunc {
-	if self.Header == "" {
-		self.Header = "X-HTTP-Method-Override"
+//		ctx.Info.Get("override.method") // method replaced. e.g., "DELETE"
+func (f *FilterOverride) Run(next HandlerFunc) HandlerFunc {
+	if f.Header == "" {
+		f.Header = "X-HTTP-Method-Override"
 	}
-	if self.QueryVar == "" {
-		self.QueryVar = "_method"
+	if f.QueryVar == "" {
+		f.QueryVar = "_method"
+	}
+	if f.Methods == nil {
+		f.Methods = map[string]string{
+			"DELETE":  "POST",
+			"OPTIONS": "GET",
+			"PATCH":   "POST",
+			"PUT":     "POST",
+		}
 	}
 
-	return func(rw ResponseWriter, re *Request) {
-		if mo := re.URL.Query().Get(self.QueryVar); mo != "" {
-			re.Header.Set(self.Header, mo)
+	return func(ctx *Context) {
+		if override := ctx.Request.URL.Query().Get(f.QueryVar); override != "" {
+			ctx.Request.Header.Set(f.Header, override)
 		}
-		if mo := re.Header.Get(self.Header); mo != "" {
-			if mo != re.Method {
-				override, ok := FilterOverrideMethods[mo]
+		if override := ctx.Request.Header.Get(f.Header); override != "" {
+			if override != ctx.Request.Method {
+				method, ok := f.Methods[override]
 				if !ok {
-					rw.Error(http.StatusMethodNotAllowed, mo+" method is not overridable.")
+					ctx.Error(http.StatusBadRequest, override+" method is not overridable.")
 					return
 				}
 				// check that the caller method matches the expected override. e.g., used GET for OPTIONS
-				if re.Method != override {
-					rw.Error(http.StatusPreconditionFailed, "must use "+override+" to override for "+mo)
+				if ctx.Request.Method != method {
+					ctx.Error(http.StatusPreconditionFailed, "Must use "+method+" to override "+override)
 					return
 				}
-				re.Method = override
-				re.Header.Del(self.Header)
-				re.Info.Set("override.method", override)
+				Log.Println(LOG_DEBUG, "Method override:", method, "=>", override)
+				ctx.Request.Method = override
+				ctx.Request.Header.Del(f.Header)
+				ctx.Info.Set("override.method", override)
 			}
 		}
-		next(rw, re)
+		next(ctx)
 	}
 }

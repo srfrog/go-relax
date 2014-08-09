@@ -11,10 +11,9 @@ import (
 )
 
 // Link represents a hypertext relation link. It implements HTTP web links
-// between resources that are not format specific. For details see
-// https://tools.ietf.org/html/rfc5988
-// http://tools.ietf.org/html/draft-nottingham-linked-cache-inv-04
-// http://tools.ietf.org/html/rfc6570
+// between resources that are not format specific. For details see also,
+// Web Linking: :https://tools.ietf.org/html/rfc5988
+// URI Template: http://tools.ietf.org/html/rfc6570
 type Link struct {
 	URI      string `json:"href"`
 	Rel      string `json:"rel"`
@@ -28,9 +27,9 @@ type Link struct {
 
 // String returns a string representation of a Link object. Suitable for use
 // in Link: headers.
-func (self *Link) String() string {
-	link := fmt.Sprintf(`<%s>`, self.URI)
-	e := reflect.ValueOf(self).Elem()
+func (l *Link) String() string {
+	link := fmt.Sprintf(`<%s>`, l.URI)
+	e := reflect.ValueOf(l).Elem()
 	for i := 1; i < e.NumField(); i++ {
 		n, v := e.Type().Field(i).Name, e.Field(i).String()
 		if v == "" {

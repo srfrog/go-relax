@@ -11,110 +11,110 @@ import (
 	"sync"
 )
 
-// responseBuffer implements http.ResponseWriter. It is used to redirect all
-// writes and headers to a buffer, which can be written to a ResponseWriter.
-type responseBuffer struct {
-	ResponseWriter
-	buf         bytes.Buffer
+/*
+ResponseBuffer implements http.ResponseWriter, but redirects all
+writes and headers to a buffer. This allows to inspect the response before
+sending it. When a response is buffered, it needs an explicit call to
+Flush or WriteTo to send it.
+
+ResponseBuffer also implements io.WriteTo to write data to any object that
+implements io.Writer.
+*/
+type ResponseBuffer struct {
+	bytes.Buffer
 	wroteHeader bool
 	status      int
 	header      http.Header
 }
 
-// Header tracks header operations while buffering.
-// FIXME: we might need to lookup header values before we started buffering..
-func (self *responseBuffer) Header() http.Header {
-	return self.header
+// Header returns the buffered header map.
+func (rb *ResponseBuffer) Header() http.Header {
+	return rb.header
 }
 
-// WriteHeader keeps the value of last status code while buffering.
-func (self *responseBuffer) WriteHeader(code int) {
-	if self.wroteHeader {
+// Write writes the data to the buffer.
+// Returns the number of bytes written or error on failure.
+func (rb *ResponseBuffer) Write(b []byte) (int, error) {
+	return rb.Buffer.Write(b)
+}
+
+// WriteHeader stores the value of status code.
+func (rb *ResponseBuffer) WriteHeader(code int) {
+	if rb.wroteHeader {
 		return
 	}
-	self.wroteHeader = true
-	self.status = code
+	rb.wroteHeader = true
+	rb.status = code
 }
 
-// Write sends all content to the buffer. It wont be used unless
-// Flush or WriteTo are called later.
-func (self *responseBuffer) Write(b []byte) (int, error) {
-	return self.buf.Write(b)
-}
-
-// Status returns the last known status code while buffering. If no status
-// has been set, it returns the last known value from the caller ResponseWriter.
-func (self *responseBuffer) Status() int {
-	if self.wroteHeader {
-		return self.status
+// Status returns the last known status code saved. If no status has been set,
+// it returns http.StatusOK which is the default in ``net/http``.
+func (rb *ResponseBuffer) Status() int {
+	if rb.wroteHeader {
+		return rb.status
 	}
-	return self.ResponseWriter.Status()
+	return http.StatusOK
 }
 
-// WriteTo implements io.WriterTo. It sends all content, except headers,
-// to any object that implements io.Writer. The headers are sent to
-// the caller ResponseWriter. It will call Free() to return the buffer
-// back to the pool.
+// WriteTo implements io.WriterTo. It sends the buffer, except headers,
+// to any object that implements io.Writer. The buffer will be empty after
+// this call.
 // Returns the number of bytes written or error on failure.
-func (self *responseBuffer) WriteTo(w io.Writer) (int64, error) {
-	defer self.Free()
-	self.FlushHeader()
-	return self.buf.WriteTo(w)
+func (rb *ResponseBuffer) WriteTo(w io.Writer) (int64, error) {
+	return rb.Buffer.WriteTo(w)
 }
 
-// Flush send the contents of the buffer to the caller ResponseWriter.
-func (self *responseBuffer) Flush() (int64, error) {
-	return self.WriteTo(self.ResponseWriter)
-}
-
-// FlushHeader sends all the buffered headers, but no content.
-// This function wont Free the buffer or reset the headers.
-func (self *responseBuffer) FlushHeader() {
-	for k, v := range self.header {
-		self.ResponseWriter.Header()[k] = v
+// FlushHeader sends the buffered headers and status, but not the content, to
+// 'w' an object that implements http.ResponseWriter.
+// This function won't free the buffer or reset the headers but it will send
+// the status using ResponseWriter.WriterHeader, if status was saved before.
+// See also: ResponseBuffer.Flush, ResponseBuffer.WriteHeader
+func (rb *ResponseBuffer) FlushHeader(w http.ResponseWriter) {
+	for k, v := range rb.header {
+		w.Header()[k] = v
 	}
-	if self.wroteHeader {
-		self.ResponseWriter.WriteHeader(self.status)
+	if rb.wroteHeader {
+		w.WriteHeader(rb.status)
 	}
 }
 
-// Len returns the number of bytes stored in the buffer.
-func (self *responseBuffer) Len() int {
-	return self.buf.Len()
+// Flush sends the headers, status and buffered content to 'w', an
+// http.ResponseWriter object. The ResponseBuffer object is freed after this call.
+// Returns the number of bytes written to 'w' or error on failure.
+// See also: ResponseBuffer.Free, ResponseBuffer.FlushHeader, ResponseBuffer.WriteTo
+func (rb *ResponseBuffer) Flush(w http.ResponseWriter) (int64, error) {
+	defer rb.Free()
+	rb.FlushHeader(w)
+	return rb.WriteTo(w)
 }
 
-// Bytes returns the contents of the buffer in a byte slice.
-func (self *responseBuffer) Bytes() []byte {
-	return self.buf.Bytes()
-}
-
-// reponseBufferPool allows us to reuse some responseBuffer objects to
+// reponseBufferPool allows us to reuse some ResponseBuffer objects to
 // conserve system resources.
 var reponseBufferPool = sync.Pool{
-	New: func() interface{} { return new(responseBuffer) },
+	New: func() interface{} { return new(ResponseBuffer) },
 }
 
-// Free returns a responseBuffer object back to the usage pool.
+// NewResponseBuffer returns a ResponseBuffer object initialized with the headers
+// of 'w', an object that implements ``http.ResponseWriter``.
+// Objects returned using this function are pooled to save resources.
+// See also: ResponseBuffer.Free
+func NewResponseBuffer(w http.ResponseWriter) *ResponseBuffer {
+	rb := reponseBufferPool.Get().(*ResponseBuffer)
+	rb.header = make(http.Header, 0)
+	for k, v := range w.Header() {
+		rb.header[k] = v
+	}
+	return rb
+}
+
+// Free frees a ResponseBuffer object returning it back to the usage pool.
 // Use with ``defer`` after calling NewResponseBuffer if WriteTo or Flush
-// arent used.
-func (self *responseBuffer) Free() {
-	self.ResponseWriter = nil
-	self.buf.Reset()
-	self.wroteHeader = false
-	self.status = 0
-	self.header = nil
-	reponseBufferPool.Put(self)
-}
-
-// NewResponseBuffer create a responseBuffer object.
-// responseBuffer is used to bypass writes to ResponseWriter using a bytes.Buffer.
-// Returns new responseWriter object that uses a responseBuffer to bypass writes
-// to ResponseWriter, and the responseBuffer object itself.
-func NewResponseBuffer(rw ResponseWriter) (*responseWriter, *responseBuffer) {
-	rb := reponseBufferPool.Get().(*responseBuffer)
-	rb.ResponseWriter = rw
-	rb.header = rw.Header()
-	rr := newResponseWriter(rb)
-	rr.Encode = rw.(*responseWriter).Encode
-	return rr, rb
+// arent used. The values of the ResponseBuffer are reset and must be
+// re-initialized.
+func (rb *ResponseBuffer) Free() {
+	rb.Buffer.Reset()
+	rb.wroteHeader = false
+	rb.status = 0
+	rb.header = nil
+	reponseBufferPool.Put(rb)
 }

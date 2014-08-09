@@ -7,7 +7,8 @@ package xmlenc
 import (
 	"bytes"
 	"encoding/xml"
-	"github.com/codehack/go-relax"
+	// "github.com/codehack/go-relax"
+	".."
 	"io"
 	"io/ioutil"
 )
@@ -44,26 +45,26 @@ func NewEncoderXML() *EncoderXML {
 }
 
 // Accept returns the media type for XML content, used in Accept header.
-func (self *EncoderXML) Accept() string {
-	return self.AcceptHeader
+func (e *EncoderXML) Accept() string {
+	return e.AcceptHeader
 }
 
 // ContentType returns the media type for XML content, used in the
 // Content-Type header.
-func (self *EncoderXML) ContentType() string {
-	return self.ContentTypeHeader
+func (e *EncoderXML) ContentType() string {
+	return e.ContentTypeHeader
 }
 
 // Encode will try to encode the value of v into XML. If EncoderJSON.Indented
 // is true, then the XML will be indented with tabs.
 // Returns the XML content and nil on success, otherwise []byte{} and error
 // on failure.
-func (self *EncoderXML) Encode(v interface{}) ([]byte, error) {
+func (e *EncoderXML) Encode(v interface{}) ([]byte, error) {
 	var bb bytes.Buffer
 	var b []byte
 	var err error
 
-	if self.Indented {
+	if e.Indented {
 		b, err = xml.MarshalIndent(v, "", "\t")
 	} else {
 		b, err = xml.Marshal(v)
@@ -87,13 +88,13 @@ func (self *EncoderXML) Encode(v interface{}) ([]byte, error) {
 // set it to a variable v. If the payload is too large, with maximum
 // EncoderXML.MaxBodySize, it will fail with error ErrBodyTooLarge
 // Returns nil on success and error on failure.
-func (self *EncoderXML) Decode(reader io.Reader, v interface{}) error {
-	r := io.LimitReader(reader, self.MaxBodySize+1)
+func (e *EncoderXML) Decode(reader io.Reader, v interface{}) error {
+	r := io.LimitReader(reader, e.MaxBodySize+1)
 	b, err := ioutil.ReadAll(r)
 	if err != nil {
 		return err
 	}
-	if int64(len(b)) > self.MaxBodySize {
+	if int64(len(b)) > e.MaxBodySize {
 		return relax.ErrBodyTooLarge
 	}
 	return xml.Unmarshal(b, v)

@@ -4,18 +4,15 @@
 
 package relax
 
-// HandlerFunc is simply a version of http.HandlerFunc that uses managed
-// ResponseWriter and Request objects. All filters must return and accept
-// this type.
-type HandlerFunc func(ResponseWriter, *Request)
+// HandlerFunc is simply a version of http.HandlerFunc that uses Context.
+// All filters must return and accept this type.
+type HandlerFunc func(*Context)
 
 /*
-Filter
-
-Relax favors the use of filters over middleware to pre and post-process all requests.
-Filters are function closures that are chained in FILO (First-In Last-Out) order.
-At any time, a filter can stop a request by returning before the next chained filter
-is called. The final link points to the resource handler.
+Filter is a function closure that is chained in FILO (First-In Last-Out) order.
+Filters pre and post process all requests. At any time, a filter can stop a request by
+returning before the next chained filter is called. The final link points to the
+resource handler.
 
 Filters are run at different times during a request, and in order: Service, Resource and, Route.
 Service filters are run before resource filters, and resource filters before route filters.

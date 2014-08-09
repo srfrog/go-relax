@@ -1,4 +1,4 @@
-# Go-Relax [![GoDoc](https://godoc.org/github.com/codehack/go-relax?status.svg)](https://godoc.org/github.com/codehack/go-relax) ![Project progress](http://progressed.io/bar/35 "Progress")
+# Go-Relax [![GoDoc](https://godoc.org/github.com/codehack/go-relax?status.svg)](https://godoc.org/github.com/codehack/go-relax) ![Project progress](http://progressed.io/bar/45 "Progress")
 
 *Build fast and complete RESTful APIs in [Go](http://golang.org)*
 
@@ -19,7 +19,7 @@ _Path to 1.0: Please keep note of the framework version as different areas are r
 - Support for different media types, that can be **mixed** for requests and responses.
 - It uses **JSON** media type by default, but also includes XML (not enabled by default).
 - The default routing engine uses **trie with regexp matching** for speed and flexibility.
-- Comes with a complete set of filters to build a working API. aka _"Batteries included"_ but not the kitchen sink.
+- Comes with a complete set of filters to build a working API. _"Batteries included"_
 - All the framework's components: encoding, routing, logging, and filters, are modular. And should be easily replaced by custom packages.
 - Uses ``sync.pool`` to efficiently use resources when under heavy load.
 
@@ -39,52 +39,7 @@ Check [example_test.go](https://github.com/codehack/go-relax/blob/master/example
 
 ## Howto
 
-This and more Howto's are found in the [wiki](https://github.com/codehack/go-relax/wiki).
-
-### Use existing or third-party net/http handlers
-
-```go
-// split the return of Service.Handler()
-path, handler := myservice.Handler()
-
-// now use your handler chain, for example, with a timeout.
-http.Handle(path, http.TimeoutHandler(handler, 3, "Time out!"))
-```
-
-### Create a new Filter
-
-```go
-type MyFilter struct {
-	SomeOption string
-}
-func (f *MyFilter) Run(next relax.HandlerFunc) relax.HandlerFunc {
-	// initialize your filter
-	if f.SomeOption == "" {
-		f.SomeOption = "some value"
-	}
-
-	// delegate
-	return func(rw relax.ResponseWriter, re *relax.Request) {
-		// do stuff before next filter...
-
-		if someError() {
-			// error found! stop the request.
-			rw.Error(400, "Aborted!")
-			return
-		}
-		// continue to next filter
-		next(rw, re)
-		// do stuff after previous filters...
-	}
-}
-```
-
-Now place your shinny new filter somewhere in the request chain.
-
-```go
-	res.GET("{item}", MyHandler, &MyFilter{})
-	res.PUT("{hex:apikey}", KeyHandler, &MyFilter{"Filter APIKey"})
-```
+Howto's are found in the [wiki](https://github.com/codehack/go-relax/wiki).
 
 ## Documentation
 

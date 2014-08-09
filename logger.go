@@ -13,6 +13,7 @@ import (
 // https://httpd.apache.org/docs/2.4/mod/core.html#loglevel
 type LogLevel int
 
+// Log level contants, 0 (LOG_EMERG) to 7 (LOG_DEBUG)
 const (
 	LOG_EMERG  LogLevel = iota // emergency, system is unusable. Terminate.
 	LOG_ALERT                  // action must be taken immediately
@@ -48,9 +49,7 @@ func (l LogLevel) String() string {
 }
 
 /*
-Logger
-
-The Logger interface allows any logging system to be plugged in.
+Logger interface allows any logging system to be plugged in.
 
 Relax provides a very simple logging system that is intended to be replaced by
 something more robust. The foundation is laid for logging systems that support
@@ -93,7 +92,7 @@ type logger struct {
 // LogLevel converts a log level int to a prefix string that represents it.
 // ANSI escape sequences are used to colorize the prefix.
 // See https://en.wikipedia.org/wiki/ANSI_escape_code#Colors
-func (self *logger) LogLevel(level LogLevel) string {
+func (l *logger) LogLevel(level LogLevel) string {
 	var format string
 	switch level {
 	case LOG_EMERG, LOG_ALERT, LOG_CRIT:
@@ -112,32 +111,32 @@ func (self *logger) LogLevel(level LogLevel) string {
 	return fmt.Sprintf(format, level.String()[0])
 }
 
-func (self *logger) Print(level LogLevel, v ...interface{}) {
-	if level > self.level {
+func (l *logger) Print(level LogLevel, v ...interface{}) {
+	if level > l.level {
 		return
 	}
-	self.log.SetPrefix(self.LogLevel(level))
-	self.log.Print(v...)
+	l.log.SetPrefix(l.LogLevel(level))
+	l.log.Print(v...)
 }
 
-func (self *logger) Printf(level LogLevel, format string, v ...interface{}) {
-	if level > self.level {
+func (l *logger) Printf(level LogLevel, format string, v ...interface{}) {
+	if level > l.level {
 		return
 	}
-	self.log.SetPrefix(self.LogLevel(level))
-	self.log.Printf(format, v...)
+	l.log.SetPrefix(l.LogLevel(level))
+	l.log.Printf(format, v...)
 }
 
-func (self *logger) Println(level LogLevel, v ...interface{}) {
-	if level > self.level {
+func (l *logger) Println(level LogLevel, v ...interface{}) {
+	if level > l.level {
 		return
 	}
-	self.log.SetPrefix(self.LogLevel(level))
-	self.log.Println(v...)
+	l.log.SetPrefix(l.LogLevel(level))
+	l.log.Println(v...)
 }
 
-func (self *logger) SetLevel(level LogLevel) {
-	self.level = level
+func (l *logger) SetLevel(level LogLevel) {
+	l.level = level
 }
 
 // StatusLogLevel converts an HTTP status code into a log level value.

@@ -8,14 +8,15 @@ provides a thin layer over ``net/http`` to serve resources, without imposing a r
 structure. It is meant to be used along ``http.ServeMux``, but will work as a replacement
 as it implements ``http.Handler``.
 
-The framework is divided into components: Encoding, Filters, Routing, Logging and Resources.
+The framework is divided into components: Encoding, Filters, Routing, Logging and, Resources.
 These are the parts of a complete REST Service. All the components are designed to be
 pluggable (replaced) through interfaces by external packages. Relax provides
 enough built-in functionality to assemble a complete REST API.
+
 The system is based on Resource Oriented Architecture (ROA), and had some inspiration
 from Heroku's REST API.
 */
 package relax
 
 // Version is the version of this package.
-const Version = "0.3.1"
+const Version = "0.4.0"
