@@ -88,7 +88,8 @@ type FilterSecurity struct {
 	PragmaDisable bool
 }
 
-// Run runs the filter
+// Run runs the filter and passes down the following Info:
+//		ctx.Info.Get("security.sts") // boolean; whether STS was enabled.
 func (f *FilterSecurity) Run(next HandlerFunc) HandlerFunc {
 	if f.UACheckErrMsg == "" {
 		f.UACheckErrMsg = securityUACheckErr
@@ -122,6 +123,7 @@ func (f *FilterSecurity) Run(next HandlerFunc) HandlerFunc {
 		// turn off HSTS if not on secure connection.
 		if !f.HSTSDisable && ctx.IsSSL() {
 			ctx.Header().Set("Strict-Transport-Security", f.HSTSOptions)
+			ctx.Info.Set("security.sts", true)
 		}
 
 		if !f.CacheDisable {
