@@ -66,13 +66,13 @@ type FilterCORS struct {
 	// AllowMethods is the list of HTTP methods that can be used in a request. If AllowMethods
 	// is empty, all permission requests (preflight) will fail with an HTTP error response.
 	//
-	// Default: GET, DELETE, HEAD, POST, PUT
+	// Default: "GET", "POST", "PATCH", "PUT", "DELETE"
 	AllowMethods []string
 
 	// AllowHeaders is the list of HTTP headers that can be used in a request. If AllowHeaders
 	// is empty, then only simple common HTTP headers are allowed.
 	//
-	// Default: Accept, Authorization, Content-Type, Origin
+	// Default: "Authorization", "Content-Type", "If-Match", "If-Modified-Since", "If-None-Match", "If-Unmodified-Since", "X-Requested-With"
 	AllowHeaders []string
 
 	// AllowCredentials whether or not to allow user credendials to propagate through a request.
@@ -84,14 +84,14 @@ type FilterCORS struct {
 	// ExposeHeaders is a list of HTTP headers that can be exposed to the API. This list should
 	// include any custom headers that are needed to complete the response.
 	//
-	// Default: empty
+	// Default: "Etag", "Link", "RateLimit-Limit", "RateLimit-Remaining", "RateLimit-Reset", "X-Poll-Interval"
 	ExposeHeaders []string
 
 	// MaxAge is a number of seconds the permission request (preflight) results should be cached.
 	// This number should be large enough to complete all request from a client, but short enough to
 	// keep the API secure. Set to -1 to disable caching.
 	//
-	// Default: 3600
+	// Default: 86400
 	MaxAge int
 
 	// Strict specifies whether or not to adhere strictly to the W3C CORS recommendation. If

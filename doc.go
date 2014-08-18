@@ -19,7 +19,7 @@ from Heroku's REST API.
 package relax
 
 // Version is the version of this package.
-const Version = "0.5.0"
+const Version = "0.5.1"
 
 func init() {
 	// only printed, not logged.

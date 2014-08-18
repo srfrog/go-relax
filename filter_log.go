@@ -51,33 +51,42 @@ Format implements the fmt.Formatter interface, based on Apache HTTP's
 CustomLog directive. This allows a Context object to have Sprintf verbs for
 its values. See: https://httpd.apache.org/docs/2.4/mod/mod_log_config.html#formats
 
-Verb	Description
-----	---------------------------------------------------
-%%  	Percent sign
-%a  	Client remote address
-%b  	Size of reponse in bytes, excluding headers. Or '-' if zero.
-%#a 	Proxy client address, or unknown.
-%h  	Remote hostname. Will perform lookup.
-%l  	Remote ident, will write '-' (only for Apache log support).
-%m  	Request method
-%q  	Request query string.
-%r  	Request line.
-%#r 	Request line without protocol.
-%s  	Response status code.
-%#s 	Response status code and text.
-%t  	Request time, as string.
-%u  	Remote user, if any.
-%v  	Request host name.
-%A  	User agent.
-%B  	Size of reponse in bytes, excluding headers.
-%C  	Colorized status code. For console, using ANSI escape codes.
-%D  	Time lapsed to serve request, in seconds.
-%H  	Request protocol.
-%I  	Bytes received.
-%L  	Request ID.
-%P  	Server port used.
-%R  	Referer.
-%U  	Request path.
+	Verb	Description
+	----	---------------------------------------------------
+
+	%%  	Percent sign
+	%a  	Client remote address
+	%b  	Size of reponse in bytes, excluding headers. Or '-' if zero.
+	%#a 	Proxy client address, or unknown.
+	%h  	Remote hostname. Will perform lookup.
+	%l  	Remote ident, will write '-' (only for Apache log support).
+	%m  	Request method
+	%q  	Request query string.
+	%r  	Request line.
+	%#r 	Request line without protocol.
+	%s  	Response status code.
+	%#s 	Response status code and text.
+	%t  	Request time, as string.
+	%u  	Remote user, if any.
+	%v  	Request host name.
+	%A  	User agent.
+	%B  	Size of reponse in bytes, excluding headers.
+	%C  	Colorized status code. For console, using ANSI escape codes.
+	%D  	Time lapsed to serve request, in seconds.
+	%H  	Request protocol.
+	%I  	Bytes received.
+	%L  	Request ID.
+	%P  	Server port used.
+	%R  	Referer.
+	%U  	Request path.
+
+Example:
+
+	// Print request line and remote address.
+	// Index [1] needed to reuse ctx argument.
+	fmt.Printf("\"%r\" %[1]a", ctx)
+	// Output:
+	// "GET /v1/" 192.168.1.10
 
 */
 func (ctx *Context) Format(f fmt.State, c rune) {
@@ -176,10 +185,11 @@ func (ctx *Context) Format(f fmt.State, c rune) {
 FilterLog provides pre- and post-request event logs. It uses a custom
 log format similar to the one used for Apache HTTP CustomLog directive.
 
-	log := &FilterLog{}
+	myservice.Use(logrus.New())
+	log := &FilterLog{Logger: myservice.Logger(), PreLogFormat: LogFormatReferer}
 	log.Println("FilterLog implements Logger.")
 
-	// Context-specific format verbs
+	// Context-specific format verbs (see Context.Format)
 	log.Panicf("%C bad status", ctx)
 
 */
