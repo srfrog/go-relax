@@ -27,13 +27,16 @@ type FilterAuthBasic struct {
 	Authenticate func(string, string) bool
 }
 
-// ErrAuthInvalidRequest is returned when the auth request don't match the expected
-// challenge.
-var ErrAuthInvalidRequest = errors.New("auth: Invalid authorization request")
+// Errors returned by FilterAuthBasic that are general and could be reused.
+var (
+	// ErrAuthInvalidRequest is returned when the auth request don't match the expected
+	// challenge.
+	ErrAuthInvalidRequest = errors.New("auth: Invalid authorization request")
 
-// ErrAuthInvalidSyntax is returned when the syntax of the credentials is not what is
-// expected.
-var ErrAuthInvalidSyntax = errors.New("auth: Invalid credentials syntax")
+	// ErrAuthInvalidSyntax is returned when the syntax of the credentials is not what is
+	// expected.
+	ErrAuthInvalidSyntax = errors.New("auth: Invalid credentials syntax")
+)
 
 // denyAllAccess is the default Authenticate function, and as the name
 // implies, will deny all access by returning false.
@@ -65,13 +68,11 @@ func getUserPass(header string) ([]string, error) {
 //		ctx.Info.Get("auth.type") // auth scheme type. e.g., "basic"
 func (f *FilterAuthBasic) Run(next HandlerFunc) HandlerFunc {
 	if f.Realm == "" {
-		Log.Println(LogWarn, "FilterAuthBasic: using default realm")
 		f.Realm = "Authorization Required"
 	}
 	f.Realm = strings.Replace(f.Realm, `"'`, "", -1)
 
 	if f.Authenticate == nil {
-		Log.Println(LogAlert, "FilterAuthBasic: denying all access; no authenticate function set")
 		f.Authenticate = denyAllAccess
 	}
 

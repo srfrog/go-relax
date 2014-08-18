@@ -22,5 +22,3 @@ type StatusError struct {
 func (e *StatusError) Error() string { return e.Message }
 
 // BUG(TODO): StatusError is too shallow, need to implement better error system with locale support.
-// BUG(TODO): StatusError is also tied to JSON, it needs to support any encoding type.
-//

@@ -42,6 +42,8 @@ for a value and varname is the name to give the variable that matches the value.
 
 	"*" // translated into "{wild}"
 
+	"{re:pattern}" // custom regexp pattern.
+
 Some sample routes supported by trieRegexpRouter:
 
 	GET /api/users/@{word:name}
@@ -55,6 +57,8 @@ Some sample routes supported by trieRegexpRouter:
 	GET /api/cities/{geo:location}
 
 	PUT /api/investments/\${float:dollars}/fund
+
+	GET /api/todos/month/{re:([0][1-9]|[1][0-2])}
 
 Since PSE's are compiled to regexp, care must be taken to escape characters that
 might break the compilation.
@@ -117,8 +121,12 @@ type trieNode struct {
 
 // segmentExp compiles the pattern string into a regexp so it can used in a
 // path segment match. This function will panic if the regexp compilation fails.
-// BUG(TODO): trieRegexpRouter has no support for custom regexp's for PSE's yet.
 func segmentExp(pattern string) *regexp.Regexp {
+	// custom regexp pattern.
+	if strings.HasPrefix(pattern, "{re:") {
+		return regexp.MustCompile(pattern[4 : len(pattern)-1])
+	}
+
 	// turn "*" => "{wild}"
 	pattern = strings.Replace(pattern, "*", `{wild}`, -1)
 	// any: catch-all pattern
@@ -190,7 +198,6 @@ func segmentExp(pattern string) *regexp.Regexp {
 // AddRoute breaks a path into segments and inserts them in the tree. If a
 // segment contains matching {}'s then it is tried as a regexp segment, otherwise it is
 // treated as a regular string segment.
-// BUG(TODO): AddRoute should support absolute URI in path.
 func (router *trieRegexpRouter) AddRoute(method, path string, handler HandlerFunc) {
 	node := router.root
 	pseg := strings.Split(method+strings.TrimRight(path, "/"), "/")
@@ -210,11 +217,6 @@ func (router *trieRegexpRouter) AddRoute(method, path string, handler HandlerFun
 		node = node.links[pseg[i]]
 	}
 
-	if node.handler != nil {
-		Log.Println(LogDebug, "Chg route:", method, path)
-	} else {
-		Log.Println(LogDebug, "Add route:", method, path)
-	}
 	node.handler = handler
 
 	// update methods list
@@ -248,10 +250,8 @@ func (node *trieNode) matchSegment(pseg string, depth int, values *url.Values) *
 				sub := rx.SubexpNames()
 				for i, n := 1, len(*values)/2; i < len(m); i++ {
 					_n := fmt.Sprintf("_%d", n+i)
-					Log.Println(LogDebug, "[router] Path value:", _n, "=", m[i])
 					(*values).Set(_n, m[i])
 					if sub[i] != "" {
-						Log.Println(LogDebug, "[router] Path value:", sub[i], "=", m[i])
 						(*values).Add(sub[i], m[i])
 					}
 				}

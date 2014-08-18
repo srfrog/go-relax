@@ -20,15 +20,15 @@ is a namespace where all operations for that resource happen.
 	}
 
 	// This function is needed for Locations to implement Resourcer
-	func (l *Locations) Index (ctx *Context) {}
+	func (l *Locations) Index (ctx *Context) { ctx.Respond(l) }
 
 	loc := &Locations{City: "Scottsdale", Country: "US"}
 	myresource := service.Resource(loc)
 
 */
 type Resourcer interface {
-	// Index may serve the entry GET request to a resource. Such as a listing
-	// a collection.
+	// Index may serve the entry GET request to a resource. Such as the listing
+	// of a collection.
 	Index(*Context)
 }
 
@@ -58,7 +58,7 @@ type Resource struct {
 	links      []*Link     // resource links
 }
 
-// getPath similar as Service.getPath, returns the path to this resource. If sub
+// getPath similar to Service.getPath, returns the path to this resource. If sub
 // is not empty, it appends to the resource path returned.
 func (r *Resource) getPath(sub string) string {
 	if strings.Contains(sub, r.path) {
@@ -71,10 +71,17 @@ func (r *Resource) getPath(sub string) string {
 	return path
 }
 
+// BUG(TODO): Complete PATCH support - http://tools.ietf.org/html/rfc5789, http://tools.ietf.org/html/rfc6902
+
 // optionsHandler responds to OPTION requests. It returns an Allow header listing
 // the methods allowed for this resource.
 func (r *Resource) optionsHandler(ctx *Context) {
-	ctx.Header().Set("Allow", r.router.PathMethods(ctx.Request.URL.Path))
+	methods := r.router.PathMethods(ctx.Request.URL.Path)
+	ctx.Header().Set("Allow", methods)
+	if strings.Contains(methods, "PATCH") {
+		// FIXME: this is wrong! perhaps we need Patch.ContentType() or even Service.encoders keys.
+		ctx.Header().Set("Accept-Patch", ctx.Info.Get("content.encoding"))
+	}
 	ctx.WriteHeader(http.StatusNoContent)
 }
 
@@ -109,15 +116,11 @@ func (r *Resource) relHandler(next HandlerFunc) HandlerFunc {
 /*
 Route adds a resource route (method + path) and its handler to the router.
 
-method is the HTTP method verb (GET, POST, ...).
-
-path is the URI path and optional matching expressions.
-
-h is the handler function with signature HandlerFunc (see Filter).
-
-filters are route-level filters run before the handler. If the resource has
-its own filters, those are prepended to the filters list; resource-level
-filters will run before route-level filters.
+'method' is the HTTP method verb (GET, POST, ...). 'path' is the URI path and
+optional path matching expressions (PSE). 'h' is the handler function with
+signature HandlerFunc. 'filters' are route-level filters run before the handler.
+If the resource has its own filters, those are prepended to the filters list;
+resource-level filters will run before route-level filters.
 
 Returns the resource itself for chaining.
 */
@@ -152,8 +155,6 @@ func (r *Resource) GET(path string, h HandlerFunc, filters ...Filter) *Resource 
 func (r *Resource) OPTIONS(path string, h HandlerFunc, filters ...Filter) *Resource {
 	return r.Route("OPTIONS", path, h, filters...)
 }
-
-// BUG(TODO): Complete PATCH support - http://tools.ietf.org/html/rfc5789
 
 // PATCH is a convenient alias to Route using PATCH as method
 func (r *Resource) PATCH(path string, h HandlerFunc, filters ...Filter) *Resource {
@@ -203,11 +204,7 @@ Specific uses of PUT/PATCH/DELETE are dependent on the application, so CRUD()
 won't make any assumptions for those.
 */
 func (r *Resource) CRUD(pse string) *Resource {
-	crud, ok := r.collection.(CRUD)
-	if !ok {
-		Log.Printf(LogErr, "%T doesn't implement CRUD", r.collection)
-		return r
-	}
+	crud := r.collection.(CRUD)
 
 	if pse == "" {
 		// use resource collection name
@@ -216,8 +213,6 @@ func (r *Resource) CRUD(pse string) *Resource {
 			pse = "{item}" // give up
 		}
 	}
-
-	Log.Println(LogDebug, "Adding CRUD routes...")
 
 	r.Route("GET", pse, crud.Read)
 	r.Route("POST", "", crud.Create)
@@ -250,7 +245,7 @@ func (svc *Service) Resource(collection Resourcer, filters ...Filter) *Resource 
 	cs := fmt.Sprintf("%T", collection)
 	name := strings.ToLower(cs[strings.LastIndex(cs, ".")+1:])
 	if name == "" {
-		panic(`relax: Resource(` + cs + `): failed to reflect name of collection`)
+		panic("relax: Resource naming failed: " + cs)
 	}
 
 	res := &Resource{
@@ -266,8 +261,6 @@ func (svc *Service) Resource(collection Resourcer, filters ...Filter) *Resource 
 	if filters != nil {
 		res.filters = append(res.filters, filters...)
 	}
-
-	Log.Println(LogDebug, "New resource:", res.path, "=>", len(filters), "filters")
 
 	// OPTIONS lists the methods allowed.
 	res.Route("OPTIONS", "", res.optionsHandler)

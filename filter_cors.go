@@ -27,7 +27,7 @@ var (
 	allowHeadersDefault = []string{"Authorization", "Content-Type", "If-Match", "If-Modified-Since", "If-None-Match", "If-Unmodified-Since", "X-Requested-With"}
 
 	// exposeHeadersDefault are headers used regularly by both client/server
-	exposeHeadersDefault = []string{"Etag", "Link", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset", "X-Poll-Interval"}
+	exposeHeadersDefault = []string{"Etag", "Link", "RateLimit-Limit", "RateLimit-Remaining", "RateLimit-Reset", "X-Poll-Interval"}
 
 	// allowOriginRegexp holds our pre-compiled origin regex patterns.
 	allowOriginRegexp = []*regexp.Regexp{}
@@ -121,6 +121,8 @@ func (f *FilterCORS) corsHeaders(origin string) http.Header {
 	return headers
 }
 
+// XXX: handlePreflightRequest does not do preflight steps 9 & 10 checks because they are too strict.
+// XXX: It will skip steps 9 & 10, as per the recommendation.
 func (f *FilterCORS) handlePreflightRequest(origin, rmethod, rheaders string) (http.Header, error) {
 	if !strarr.Contains(simpleMethods, rmethod) && !strarr.Contains(f.AllowMethods, rmethod) {
 		return nil, &StatusError{http.StatusMethodNotAllowed, "Invalid method in preflight", nil}
@@ -136,7 +138,6 @@ func (f *FilterCORS) handlePreflightRequest(origin, rmethod, rheaders string) (h
 	if f.MaxAge > 0 {
 		headers.Set("Access-Control-Max-Age", strconv.Itoa(f.MaxAge))
 	}
-	// BUG(TODO): FilterCORS needs preflight step 9 & 10 checks (too strict?)
 	if f.AllowMethods != nil {
 		headers.Set("Access-Control-Allow-Methods", strings.Join(f.AllowMethods, ", "))
 	}
@@ -167,7 +168,7 @@ func (f *FilterCORS) isOriginAllowed(origin string) bool {
 
 // Run runs the filter and passes down the following Info:
 //		ctx.Info.Get("cors.request") // boolean, whether or not this was a CORS request.
-//		ctx.Info.Get("cors.origin") // Origin of the request, if CORS
+//		ctx.Info.Get("cors.origin")  // Origin of the request, if it's a CORS request.
 func (f *FilterCORS) Run(next HandlerFunc) HandlerFunc {
 	if f.AllowMethods == nil {
 		f.AllowMethods = allowMethodsDefault
@@ -208,7 +209,6 @@ func (f *FilterCORS) Run(next HandlerFunc) HandlerFunc {
 
 		if !f.AllowAnyOrigin && !f.isOriginAllowed(origin) {
 			if f.Strict {
-				Log.Printf(LogDebug, "%s FilterCORS: origin not allowed %q", ctx.Info.Get("context.request_id"), origin)
 				ctx.Error(http.StatusForbidden, "Invalid CORS origin")
 				return
 			}

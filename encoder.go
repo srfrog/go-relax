@@ -8,11 +8,10 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"io/ioutil"
 )
 
-// ErrBodyTooLarge is returned when the read length exceeds the maximum size
-// set for decoding payload.
+// ErrBodyTooLarge is returned by Encoder.Decode when the read length exceeds the
+// maximum size set for payload.
 var ErrBodyTooLarge = errors.New("encoder: Body too large")
 
 /*
@@ -30,10 +29,11 @@ type Encoder interface {
 	// for decoding used in Content-Type header.
 	ContentType() string
 
-	// Encode function encodes an interface variable into a byte slice value of its encoding.
-	Encode(interface{}) ([]byte, error)
+	// Encode function encodes the value of an interface and writes it to an
+	// io.Writer stream (usually an http.ResponseWriter object).
+	Encode(io.Writer, interface{}) error
 
-	// Decode function decodes input from a io.Reader (usually Request.Body) and
+	// Decode function decodes input from an io.Reader (usually Request.Body) and
 	// tries to save it to an interface variable.
 	Decode(io.Reader, interface{}) error
 }
@@ -45,6 +45,7 @@ type EncoderJSON struct {
 	MaxBodySize int64
 
 	// Indented indicates whether or not to output indented JSON.
+	// Note: indented JSON is slower to encode.
 	// Defaults to false
 	Indented bool
 
@@ -82,13 +83,18 @@ func (e *EncoderJSON) ContentType() string {
 
 // Encode will try to encode the value of v into JSON. If EncoderJSON.Indented
 // is true, then the JSON will be indented with tabs.
-// Returns the JSON content and nil on success, otherwise []byte{} and error
-// on failure.
-func (e *EncoderJSON) Encode(v interface{}) ([]byte, error) {
+// Returns nil on success, error on failure.
+func (e *EncoderJSON) Encode(writer io.Writer, v interface{}) error {
 	if e.Indented {
-		return json.MarshalIndent(v, "", "\t")
+		// indented is much slower...
+		b, err := json.MarshalIndent(v, "", "\t")
+		if err != nil {
+			return err
+		}
+		_, err = writer.Write(b)
+		return err
 	}
-	return json.Marshal(v)
+	return json.NewEncoder(writer).Encode(v)
 }
 
 // Decode reads a JSON payload (usually from Request.Body) and tries to
@@ -96,13 +102,10 @@ func (e *EncoderJSON) Encode(v interface{}) ([]byte, error) {
 // EncoderJSON.MaxBodySize, it will fail with error ErrBodyTooLarge
 // Returns nil on success and error on failure.
 func (e *EncoderJSON) Decode(reader io.Reader, v interface{}) error {
-	r := io.LimitReader(reader, e.MaxBodySize+1)
-	b, err := ioutil.ReadAll(r)
-	if err != nil {
-		return err
-	}
-	if int64(len(b)) > e.MaxBodySize {
+	r := &io.LimitedReader{reader, e.MaxBodySize}
+	err := json.NewDecoder(r).Decode(v)
+	if err != nil && r.N == 0 {
 		return ErrBodyTooLarge
 	}
-	return json.Unmarshal(b, v)
+	return err
 }

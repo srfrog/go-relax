@@ -26,9 +26,9 @@ const (
 /*
 Content does content negotiation to select the supported representations
 for the request and response. The default representation uses media type
-"application/json" which is our default media encoding. If new media types are
-available to the service, a client can request it using the Accept header.
-The format of the Accept header uses the following vendor extension:
+"application/json". If new media types are available to the service, a client
+can request it via the Accept header. The format of the Accept header uses
+the following vendor extension:
 
 	Accept: application/vnd.relax+{subtype}; version=XX; lang=YY
 
@@ -39,7 +39,7 @@ using the vendor extension, the default values are used:
 
 	Accept: application/vnd.relax+json; version="current"; lang="en"
 
-When Accept indicates all media types, the media subtype can be requested
+When Accept indicates all media types "*&#5C;*", the media subtype can be requested
 through the URL path's extension. If the service doesn't support the media encoding,
 then it will respond with an HTTP error code.
 
@@ -129,11 +129,9 @@ func (svc *Service) Content(next HandlerFunc) HandlerFunc {
 		if langrange := ctx.Request.Header.Get("Accept-Language"); langrange != "" {
 			// Accept-Language: da, jp;q=0.8, en;q=0.9
 			prefs, err := ParsePreferences(langrange)
-			// If language parsing fails, continue with request. But we still log it.
+			// If language parsing fails, continue with request.
 			// See https://tools.ietf.org/html/rfc7231#section-5.3.5
-			if err != nil {
-				Log.Println(LogDebug, "Language parsing failed:", err.Error())
-			} else {
+			if err == nil {
 				// If content language is not listed, give it a competitive value for sanity.
 				// The value most likely is still "en" (English).
 				if _, ok := prefs[language]; !ok {
@@ -196,7 +194,7 @@ func PathExt(path string) string {
 // If a preference doesn't specify quality, then a value of 1.0 is assumed (bad!).
 // If the quality float value can't be parsed from string, an error is returned.
 func ParsePreferences(values string) (map[string]float32, error) {
-	prefs := make(map[string]float32, 0)
+	prefs := make(map[string]float32)
 	for _, rawval := range strings.Split(values, ",") {
 		val := strings.SplitN(strings.TrimSpace(rawval), ";q=", 2)
 		prefs[val[0]] = 1.0

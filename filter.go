@@ -25,7 +25,7 @@ The position of the ``next()`` handler function is important to the effect of th
 filter execution.
 */
 type Filter interface {
-	// Run executes the current filter event in a chain.
+	// Run executes the current filter in a chain.
 	// It takes a HandlerFunc function argument, which is executed within the
 	// closure returned.
 	Run(HandlerFunc) HandlerFunc

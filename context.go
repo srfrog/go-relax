@@ -30,6 +30,7 @@ type Context struct {
 	http.ResponseWriter
 	wroteHeader bool
 	status      int
+	bytes       int
 
 	// Buffer points to a buffered context, started with Context.Capture.
 	// If not capturing, Buffer is nil.
@@ -61,7 +62,7 @@ type Context struct {
 	//		ctx.Info.Get("content.encoding")
 	//
 	// See also: Encoder.Encode
-	Encode func(interface{}) ([]byte, error)
+	Encode func(io.Writer, interface{}) error
 
 	// Decode is the decoding function when this request was made. It expects an
 	// object that implements io.Reader, usually Request.Body. Then it will decode
@@ -107,11 +108,11 @@ func (ctx *Context) Free() {
 	ctx.ResponseWriter = nil
 	ctx.wroteHeader = false
 	ctx.status = 0
+	ctx.bytes = 0
 	if ctx.Buffer != nil {
 		ctx.Buffer.Free()
 		ctx.Buffer = nil
 	}
-	ctx.Request = nil
 	ctx.PathValues = nil
 	ctx.Info.Free()
 	ctx.Decode = nil
@@ -166,7 +167,6 @@ func (ctx *Context) ProxyClient() string {
 	if client != "" {
 		return client
 	}
-
 	// check if the IP address is hidden behind a proxy request.
 	switch {
 	default:
@@ -208,7 +208,9 @@ func (ctx *Context) Header() http.Header {
 
 // Write implements ResponseWriter.Write
 func (ctx *Context) Write(b []byte) (int, error) {
-	return ctx.ResponseWriter.Write(b)
+	n, err := ctx.ResponseWriter.Write(b)
+	ctx.bytes += n
+	return n, err
 }
 
 // WriteHeader will force a status code header, if one hasn't been set.
@@ -231,6 +233,11 @@ func (ctx *Context) Status() int {
 	return ctx.status
 }
 
+// Bytes returns the number of bytes written in the response.
+func (ctx *Context) Bytes() int {
+	return ctx.bytes
+}
+
 /*
 Respond writes a response back to the client. A complete RESTful response
 should be contained within a structure.
@@ -238,33 +245,26 @@ should be contained within a structure.
 'v' is the object value to be encoded. 'code' is an optional HTTP status code.
 
 If at any point the response fails (due to encoding or system issues), an
-error is returned but not written back.
+error is returned but not written back to the client.
 
 	type Message struct {
 		Status int    `json:"status"`
 		Text   string `json:"text"`
-	} `json:"apimessage"`
+	}
 
 	ctx.Respond(&Message{Status: 201, Text: "Ticket created"}, http.StatusCreated)
 
-See also: Context.Encode, Write, WriteHeader
+See also: Context.Encode, WriteHeader
 */
 func (ctx *Context) Respond(v interface{}, code ...int) error {
-	b, err := ctx.Encode(v)
-	if err != nil {
-		// encoding failed, most likely we tried to encode something that hasn't
-		// been made marshable yet.
-		Log.Println(LogAlert, "Response encoding failed:", err.Error())
-		// send a generic response because we can't send the real one.
-		http.Error(ctx, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return err
-	}
 	if code != nil {
 		ctx.WriteHeader(code[0])
 	}
-	_, err = ctx.Write(b)
+	err := ctx.Encode(ctx.ResponseWriter, v)
 	if err != nil {
-		Log.Println(LogAlert, "Response failed:", err.Error())
+		// encoding failed, most likely we tried to encode something that hasn't
+		// been made marshable yet.
+		panic(err)
 	}
 	return err
 }
@@ -290,5 +290,4 @@ func (ctx *Context) Error(code int, message string, details ...interface{}) {
 		response.Details = details[0]
 	}
 	ctx.Respond(response, code)
-	Log.Println(LogDebug, "Error response:", code, "=>", message)
 }
