@@ -6,10 +6,19 @@ package relax
 
 import (
 	"code.google.com/p/go-uuid/uuid"
+	"log"
 	"net/http"
 	"net/url"
 	"time"
 )
+
+// Logger interface is based on Go's ``log`` package. Objects that implement
+// this interface can provide logging to Relax resources.
+type Logger interface {
+	Print(...interface{})
+	Printf(string, ...interface{})
+	Println(...interface{})
+}
 
 // Service contains all the information about the service and resources handled.
 // Specifically, the routing, encoding and service filters.
@@ -29,6 +38,8 @@ type Service struct {
 	links []*Link
 	// uptime is a timestamp when service was started
 	uptime time.Time
+	// logger is the service logging system.
+	logger Logger
 }
 
 // ServiceOptions has a description of the options available for using
@@ -41,6 +52,16 @@ type ServiceOptions struct {
 		Language string   `json:"language"`
 		Encoders []string `json:"encoders"`
 	} `json:"media"`
+}
+
+// Logf prints an log entry to logger if set, or stdlog if nil.
+// Based on the unexported function logf() in ``net/http``.
+func (svc *Service) Logf(format string, args ...interface{}) {
+	if svc.logger != nil {
+		svc.logger.Printf(format, args...)
+	} else {
+		log.Printf(format, args...)
+	}
 }
 
 // getPath returns the base path of this service.
@@ -64,11 +85,25 @@ func (svc *Service) optionsHandler(ctx *Context) {
 	ctx.Respond(svc.Options())
 }
 
+// Options returns the options available from this service. This information
+// is useful when creating OPTIONS routes.
+func (svc *Service) Options() *ServiceOptions {
+	options := &ServiceOptions{}
+	options.BaseURI = svc.URI.String()
+	options.Media.Type = ContentMediaType
+	options.Media.Version = ContentDefaultVersion
+	options.Media.Language = ContentDefaultLanguage
+	for k := range svc.encoders {
+		options.Media.Encoders = append(options.Media.Encoders, k)
+	}
+	return options
+}
+
 // rootHandler is a handler that responds with a list of all resources managed
-// by the service. This is the default route to the baseURI.
+// by the service. This is the default route to the base URI.
 // FIXME: this pukes under XML (maps of course).
 func (svc *Service) rootHandler(ctx *Context) {
-	resources := make(map[string]string, 0)
+	resources := make(map[string]string)
 	for _, v := range svc.resources {
 		resources[v.name] = svc.getPath(v.name, true)
 	}
@@ -123,13 +158,14 @@ func (svc *Service) dispatch(ctx *Context) {
 }
 
 /*
-Adapter creates a new request context, sets default HTTP headers, log tracking,
-creates the link-chain of service filters, then passes the request to content
-negotiation.
+Adapter creates a new request context, sets default HTTP headers, creates the
+link-chain of service filters, then passes the request to content negotiation.
+Also, it will create a recovery function for panics, that responds with HTTP status
+500 and logs the actual event.
 
 Info passed down by the adapter:
 
-	ctx.Info.Get("context.start_time")  // Unix timestamp when request started, in seconds.
+	ctx.Info.Get("context.start_time")  // Time when request started, as string time.Time.
 	ctx.Info.Get("context.request_id")  // Unique or user-supplied request ID.
 
 Returns an http.HandlerFunc function that can be used with http.Handle.
@@ -147,7 +183,7 @@ func (svc *Service) Adapter() http.HandlerFunc {
 
 		requestID := NewRequestID(r.Header.Get("Request-Id"))
 
-		ctx.Info.Set("context.start_time", when.Unix())
+		ctx.Info.Set("context.start_time", when)
 		ctx.Info.Set("context.request_id", requestID)
 
 		// set our default headers
@@ -155,10 +191,14 @@ func (svc *Service) Adapter() http.HandlerFunc {
 		ctx.Header().Set("Request-Id", requestID)
 		ctx.Header().Add(LinkHeader(r.URL.Path, `rel="self"`))
 
-		handler(ctx)
+		defer func() {
+			if err := recover(); err != nil {
+				http.Error(ctx, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				svc.Logf("relax: Panic recovery: %s", err)
+			}
+		}()
 
-		Log.Printf(StatusLogLevel(ctx.Status()), "[%.8s] \"%s %s\" => \"%d %s\" done in %fs",
-			requestID, r.Method, r.URL.RequestURI(), ctx.Status(), http.StatusText(ctx.Status()), time.Since(when).Seconds())
+		handler(ctx)
 	}
 }
 
@@ -167,10 +207,12 @@ Handler is a function that returns the values needed by http.Handle
 to handle a path. This allows Relax services to work along http.ServeMux.
 It returns the path of the service and the Service.Adapter handler.
 
-	myAPI := relax.NewService("http://codehack.com/api/v1")
+	// restrict requests to host "api.codehack.com"
+	myAPI := relax.NewService("http://api.codehack.com/v1")
+
 	// ... your resources might go here ...
 
-	// maps "/api/v1" in http.ServeMux
+	// maps "api.codehack.com/v1" in http.ServeMux
 	http.Handle(myAPI.Handler())
 
 	// map other resources independently
@@ -180,9 +222,15 @@ It returns the path of the service and the Service.Adapter handler.
 
 	log.Fatal(http.ListenAndServe(":8000", nil))
 
+Using this function with http.Handle is recommended over using Service.Adapter
+directly. You benefit from the security options built-in to http.ServeMux; like
+restricting to specific hosts, clean paths and separate path matching.
 */
 func (svc *Service) Handler() (string, http.Handler) {
-	return svc.URI.Path, svc.Adapter()
+	if svc.URI.Host != "" {
+		svc.Logf("relax: Matching requests to host %q", svc.URI.Host)
+	}
+	return svc.URI.Host + svc.URI.Path, svc.Adapter()
 }
 
 /*
@@ -195,6 +243,7 @@ directly, bypassing http.ServeMux.
 	// your service has complete handling of all the routes.
 	log.Fatal(http.ListenAndServe(":8000", myService))
 
+Using Service.Handler has more benefits than this method.
 */
 func (svc *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	svc.Adapter().ServeHTTP(w, r)
@@ -224,22 +273,35 @@ Router interface:
 
 	myservice.Use(MyFastRouter())
 
-Any entities that don't implement the require interfaces, will be ignored.
+To change the logging system, assign an object that implements the Logger
+interface:
+
+	// Use the excellent logrus package.
+	myservice.Use(logrus.New())
+
+	// With advanced usage
+	log := &logrus.Logger{
+		Out: os.Stderr,
+		Formatter: new(JSONFormatter),
+		Level: logrus.Debug,
+	}
+	myservice.Use(log)
+
+Any entities that don't implement the required interfaces, will be ignored.
 */
 func (svc *Service) Use(entities ...interface{}) *Service {
 	for _, e := range entities {
 		switch entity := e.(type) {
 		case Encoder:
 			svc.encoders[entity.Accept()] = entity
-			Log.Printf(LogDebug, "Use encoder: %T", entity)
 		case Filter:
 			svc.filters = append(svc.filters, entity)
-			Log.Printf(LogDebug, "Use filter: %T", entity)
 		case Router:
 			svc.router = entity
-			Log.Printf(LogDebug, "Use router: %T", entity)
+		case Logger:
+			svc.logger = entity
 		default:
-			Log.Printf(LogNotice, "Unknown entity to use: %T", entity)
+			svc.Logf("relax: Unknown entity to use: %T", entity)
 		}
 	}
 	return svc
@@ -266,46 +328,77 @@ func (svc *Service) Router() Router {
 	return svc.router
 }
 
+// Logger returns the service logging system.
+func (svc *Service) Logger() Logger {
+	return svc.logger
+}
+
 // Uptime returns the service uptime in seconds.
 func (svc *Service) Uptime() int {
 	return int(time.Since(svc.uptime) / time.Second)
 }
 
-// Options returns the options available from this service. This information
-// is useful when creating OPTIONS routes.
-func (svc *Service) Options() *ServiceOptions {
-	options := &ServiceOptions{}
-	options.BaseURI = svc.URI.String()
-	options.Media.Type = ContentMediaType
-	options.Media.Version = ContentDefaultVersion
-	options.Media.Language = ContentDefaultLanguage
-	for k := range svc.encoders {
-		options.Media.Encoders = append(options.Media.Encoders, k)
+/*
+Run will start the service using basic defaults or using arguments
+supplied. If 'args' is nil, it will start the service on port 8000.
+If 'args' is not nil, it expects in order: address (host:port),
+certificate file and key file for TLS.
+
+Run() is equivalent to:
+	http.Handle(svc.Handler())
+	http.ListenAndServe(":8000", nil)
+
+Run(":3000") is equivalent to:
+	...
+	http.ListenAndServe(":3000", nil)
+
+Run("10.1.1.100:10443", "api/cert.pem", "api/key.pem") is eq. to:
+	...
+	http.ListenAndServeTLS("10.1.1.100:10443", "api/cert.pem", "api/key.pem", nil)
+
+If the key file is missing, TLS is not used.
+
+*/
+func (svc *Service) Run(args ...string) {
+	var addr string
+	var err error
+
+	if args != nil {
+		addr = args[0]
+	} else {
+		addr = ":8000"
 	}
-	return options
+
+	http.Handle(svc.Handler())
+	if len(args) == 3 {
+		svc.Logf("relax: Listening on %q (TLS)", addr)
+		err = http.ListenAndServeTLS(addr, args[1], args[2], nil)
+	} else {
+		svc.Logf("relax: Listening on %q", addr)
+		err = http.ListenAndServe(addr, nil)
+	}
+
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 /*
-NewService creates a new Service that can serve resources and returns it.
+NewService returns a new Service that can serve resources.
 
-uri is the URI to this service, it should be an absolute URI but not required.
-If an existing path is specified, the last path is used.
-
-entities is an optional value that contains a list of Filter, Encoder, Router
-objects that are assigned at the Service-level. This is the same as Service.Use.
+'uri' is the URI to this service, it should be an absolute URI but not required.
+If an existing path is specified, the last path is used. 'entities' is an
+optional value that contains a list of Filter, Encoder, Router objects that
+are assigned at the service-level; the same as Service.Use().
 
 	myservice := NewService("https://api.codehack.com/v1", &FilterETag{})
 
-This function will panic if it can't parse the uri.
+This function will panic if it can't parse 'uri'.
 */
 func NewService(uri string, entities ...interface{}) *Service {
 	u, err := url.Parse(uri)
 	if err != nil {
-		panic(err.Error())
-	}
-
-	if !u.IsAbs() {
-		Log.Printf(LogWarn, "Service URI %q is not absolute.", uri)
+		log.Panicln("relax: Service URI parsing failed:", err.Error())
 	}
 
 	// the service path must end (and begin) with "/", this way ServeMux can
@@ -327,8 +420,6 @@ func NewService(uri string, entities ...interface{}) *Service {
 		uptime:    time.Now(),
 	}
 
-	Log.Println(LogDebug, "New service:", u.String())
-
 	// Set the default encoder, EncoderJSON
 	svc.encoders["application/json"] = NewEncoderJSON()
 
@@ -339,6 +430,8 @@ func NewService(uri string, entities ...interface{}) *Service {
 	if entities != nil {
 		svc.Use(entities...)
 	}
+
+	log.Printf("relax: New service %q", u.String())
 
 	return svc
 }

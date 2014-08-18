@@ -5,11 +5,9 @@
 package xmlenc
 
 import (
-	"bytes"
 	"encoding/xml"
 	"github.com/codehack/go-relax"
 	"io"
-	"io/ioutil"
 )
 
 // EncoderXML implements the relax.Encoder interface. It encode/decodes XML.
@@ -56,31 +54,17 @@ func (e *EncoderXML) ContentType() string {
 
 // Encode will try to encode the value of v into XML. If EncoderJSON.Indented
 // is true, then the XML will be indented with tabs.
-// Returns the XML content and nil on success, otherwise []byte{} and error
-// on failure.
-func (e *EncoderXML) Encode(v interface{}) ([]byte, error) {
-	var bb bytes.Buffer
-	var b []byte
-	var err error
-
+// Returns the nil on success, and error on failure.
+func (e *EncoderXML) Encode(writer io.Writer, v interface{}) error {
+	_, err := writer.Write([]byte(xml.Header))
+	if err != nil {
+		return err
+	}
+	enc := xml.NewEncoder(writer)
 	if e.Indented {
-		b, err = xml.MarshalIndent(v, "", "\t")
-	} else {
-		b, err = xml.Marshal(v)
+		enc.Indent("", "\t")
 	}
-	if err != nil {
-		return nil, err
-	}
-	_, err = bb.WriteString(xml.Header)
-	if err != nil {
-		return nil, err
-	}
-	_, err = bb.Write(b)
-	if err != nil {
-		return nil, err
-	}
-
-	return bb.Bytes(), nil
+	return enc.Encode(v)
 }
 
 // Decode reads an XML payload (usually from Request.Body) and tries to
@@ -88,13 +72,10 @@ func (e *EncoderXML) Encode(v interface{}) ([]byte, error) {
 // EncoderXML.MaxBodySize, it will fail with error ErrBodyTooLarge
 // Returns nil on success and error on failure.
 func (e *EncoderXML) Decode(reader io.Reader, v interface{}) error {
-	r := io.LimitReader(reader, e.MaxBodySize+1)
-	b, err := ioutil.ReadAll(r)
-	if err != nil {
-		return err
-	}
-	if int64(len(b)) > e.MaxBodySize {
+	r := &io.LimitedReader{reader, e.MaxBodySize}
+	err := xml.NewDecoder(r).Decode(v)
+	if err != nil && r.N == 0 {
 		return relax.ErrBodyTooLarge
 	}
-	return xml.Unmarshal(b, v)
+	return err
 }

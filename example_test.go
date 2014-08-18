@@ -108,20 +108,16 @@ func (u *Users) Delete(ctx *relax.Context) {
 
 // SampleHandler prints out all filter info, and responds with all path values.
 func SampleHandler(ctx *relax.Context) {
-	relax.Log.Println(relax.LogInfo, "SampleHandler", "Request:", ctx.Request.Method, ctx.Request.URL.Path)
 	ctx.Respond(ctx.PathValues)
 }
 
 // Example_basic creates a new service under path "/v1" and serves requests
 // for the users resource.
 func Example_basic() {
-	// set our log level to DEBUG for more detail
-	relax.Log.SetLevel(relax.LogDebug)
-
-	// create our resource object
+	// Create our resource object.
 	users := &Users{Group: "Influential Scientists"}
 
-	// fill-in the users.People list with some scientists (this could be from DB table)
+	// Fill-in the users.People list with some scientists (this could be from DB table).
 	users.People = []*User{
 		&User{1, "Issac Newton", time.Date(1643, 1, 4, 0, 0, 0, 0, time.UTC)},
 		&User{2, "Albert Einstein", time.Date(1879, 3, 14, 0, 0, 0, 0, time.UTC)},
@@ -130,11 +126,12 @@ func Example_basic() {
 		&User{5, "Neils Bohr", time.Date(1885, 10, 7, 0, 0, 0, 0, time.UTC)},
 	}
 
-	// create a service under "/v1" using an absolute URI, but can be just "/v1"
-	svc := relax.NewService("http://api.codehack.com/v1")
+	// Create a service under "/v1". If using absolute URI, it will limit requests
+	// to a specific host. This service has FilterLog as service-level filter.
+	svc := relax.NewService("/v1", &relax.FilterLog{})
 
-	// service-level filters (these could go inside NewService())
-	svc.Use(&relax.FilterETag{})
+	// More service-level filters (these could go inside NewService()).
+	svc.Use(&relax.FilterETag{}) // ETag with cache conditionals
 	svc.Use(&relax.FilterCORS{
 		AllowAnyOrigin:   true,
 		AllowCredentials: true,
@@ -147,7 +144,7 @@ func Example_basic() {
 	json.Indented = true
 	svc.Use(json)
 
-	// Basic authentication, used as needed
+	// Basic authentication, used as needed.
 	needsAuth := &relax.FilterAuthBasic{
 		Realm: "Masters of Science",
 		Authenticate: func(user, pass string) bool {
@@ -158,34 +155,41 @@ func Example_basic() {
 		},
 	}
 
-	// serve our resource with CRUD routes, using unsigned ints as ID's.
-	// this resource has FilterSecurity as resource-level filter.
+	// Serve our resource with CRUD routes, using unsigned ints as ID's.
+	// This resource has FilterSecurity as resource-level filter.
 	res := svc.Resource(users, &relax.FilterSecurity{CacheDisable: true}).CRUD("{uint:id}")
+	{
+		// Although CRUD added a route for "DELETE /v1/users/{uint:id}",
+		// we can change it here and respond with status 418.
+		teapotted := func(ctx *relax.Context) {
+			ctx.Error(418, "YOU are the teapot!", []string{"more details here...", "use your own struct"})
+		}
+		res.DELETE("{uint:id}", teapotted)
 
-	// although CRUD added a route for "DELETE /v1/users/{uint:id}",
-	// we can change it here and respond with status 418.
-	teapotted := func(ctx *relax.Context) {
-		ctx.Error(418, "YOU are the teapot!", []string{"more details here...", "use your own struct"})
-		// or using ctx.Respond():
-		// ctx.Respond("YOU are the teapot!", 418)
+		// Some other misc. routes to test route expressions.
+		// Shese routes will be added under "/v1/users/".
+		res.GET("dob/{date:date}", SampleHandler)               // Get by ISO 8601 datetime string
+		res.PUT("issues/{int:int}", SampleHandler)              // PUT by signed int
+		res.GET("apikey/{hex:hex}", res.NotImplemented)         // Get by APIKey (hex value) - 501-"Not Implemented"
+		res.GET("@{word:word}", SampleHandler)                  // Get by username (twitterish)
+		res.GET("stuff/{whatever}/*", teapotted)                // sure, stuff whatever...
+		res.POST("{uint:id}/checkin", SampleHandler, needsAuth) // POST with route-level filter
+		res.GET("born/{date:d1}/to/{date:d2}", SampleHandler)   // Get by DOB in date range
+		res.PATCH("", res.MethodNotAllowed)                     // PATCH method is not allowed for this resource.
+
+		// Custom regexp PSE matching.
+		// Example matching US phone numbers. Any of these values are ok:
+		// +1-999-999-1234, +1 999-999-1234, +1 (999) 999-1234, 1-999-999-1234
+		// 1 (999) 999-1234, 999-999-1234, (999) 999-1234
+		res.GET(`phone/{re:(?:\+?(1)[\- ])?(\([0-9]{3}\)|[0-9]{3})[\- ]([0-9]{3})\-([0-9]{4})}`, SampleHandler)
+		// Example matching month digits 01-12
+		res.GET(`todos/month/{re:([0][1-9]|[1][0-2])}`, SampleHandler)
+
+		// New internal method extension (notice the X).
+		res.Route("XMODIFY", "properties", SampleHandler)
 	}
-	res.DELETE("{uint:id}", teapotted)
 
-	// some other misc. routes to test route expressions.
-	// these routes will be added under "/v1/users/"
-	res.GET("dob/{date:date}", SampleHandler)               // Get by ISO 8601 datetime string
-	res.PUT("issues/{int:int}", SampleHandler)              // PUT by signed int
-	res.GET("apikey/{hex:hex}", res.NotImplemented)         // Get by APIKey (hex value) - 501-"Not Implemented"
-	res.GET("@{word:word}", SampleHandler)                  // Get by username (twitterish)
-	res.GET("stuff/{whatever}/*", teapotted)                // sure, stuff whatever...
-	res.POST("{uint:id}/checkin", SampleHandler, needsAuth) // POST with route-level filter
-	res.GET("born/{date:d1}/to/{date:d2}", SampleHandler)   // Get by DOB in date range
-	res.PATCH("", res.MethodNotAllowed)                     // PATCH method is not allowed for this resource.
-
-	// New internal method extension (notice the X)
-	res.Route("XMODIFY", "properties", SampleHandler)
-
-	// let http.ServeMux handle basic routing.
+	// Let http.ServeMux handle basic routing.
 	http.Handle(svc.Handler())
 
 	log.Fatal(http.ListenAndServe(":8000", nil))

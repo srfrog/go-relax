@@ -6,7 +6,7 @@ package relax
 
 import (
 	"crypto/sha1"
-	"fmt"
+	"encoding/hex"
 	"net/http"
 	"strings"
 	"time"
@@ -60,7 +60,6 @@ func (f *FilterETag) Run(next HandlerFunc) HandlerFunc {
 		if ctx.Buffer.Status() < 200 || ctx.Buffer.Status() == http.StatusNoContent ||
 			(ctx.Buffer.Status() > 299 && ctx.Buffer.Status() != http.StatusPreconditionFailed) ||
 			!strings.Contains("DELETE GET HEAD PATCH POST PUT", ctx.Request.Method) {
-			Log.Printf(LogDebug, "%s FilterETag: no ETag generated (status=%d method=%s)", ctx.Info.Get("context.request_id"), ctx.Buffer.Status(), ctx.Request.Method)
 			goto Finish
 		}
 
@@ -70,11 +69,12 @@ func (f *FilterETag) Run(next HandlerFunc) HandlerFunc {
 			if etag == "" {
 				alter := ""
 				// Change etag when using content encoding.
-				// XXX: support multiple encodings?
 				if ce := ctx.Buffer.Header().Get("Content-Encoding"); ce != "" {
 					alter = "-" + ce
 				}
-				etag = fmt.Sprintf(`"%x%s"`, sha1.Sum(ctx.Buffer.Bytes()), alter)
+				h := sha1.New()
+				h.Write(ctx.Buffer.Bytes())
+				etag = `"` + hex.EncodeToString(h.Sum(nil)) + alter + `"`
 			}
 		}
 
@@ -88,7 +88,6 @@ func (f *FilterETag) Run(next HandlerFunc) HandlerFunc {
 						// XXX: we cant confirm it's the same resource item without re-GET'ing it.
 						// XXX: maybe etag should be changed from strong to weak.
 						etag = ""
-						Log.Printf(LogDebug, "%s FilterETag: no ETag generated for match (status=%d method=%s)", ctx.Info.Get("context.request_id"), ctx.Buffer.Status(), ctx.Request.Method)
 						goto Finish
 					}
 				*/
@@ -100,8 +99,8 @@ func (f *FilterETag) Run(next HandlerFunc) HandlerFunc {
 			// If-Unmodified-Since
 			ifunmod := ctx.Request.Header.Get("If-Unmodified-Since")
 			if ifmatch == "" && ifunmod != "" {
-				modtime, _ := time.Parse(time.RFC1123, ifunmod)
-				lastmod, _ := time.Parse(time.RFC1123, ctx.Buffer.Header().Get("Last-Modified"))
+				modtime, _ := time.Parse(http.TimeFormat, ifunmod)
+				lastmod, _ := time.Parse(http.TimeFormat, ctx.Buffer.Header().Get("Last-Modified"))
 				if !modtime.IsZero() && !lastmod.IsZero() && lastmod.After(modtime) {
 					ctx.WriteHeader(http.StatusPreconditionFailed)
 					ctx.Buffer.Free()
@@ -128,8 +127,8 @@ func (f *FilterETag) Run(next HandlerFunc) HandlerFunc {
 			// If-Modified-Since
 			ifmods := ctx.Request.Header.Get("If-Modified-Since")
 			if ifnone == "" && ifmods != "" && !(ctx.Request.Method == "GET" || ctx.Request.Method == "HEAD") {
-				modtime, _ := time.Parse(time.RFC1123, ifmods)
-				lastmod, _ := time.Parse(time.RFC1123, ctx.Buffer.Header().Get("Last-Modified"))
+				modtime, _ := time.Parse(http.TimeFormat, ifmods)
+				lastmod, _ := time.Parse(http.TimeFormat, ctx.Buffer.Header().Get("Last-Modified"))
 				if !modtime.IsZero() && !lastmod.IsZero() && (lastmod.Before(modtime) || lastmod.Equal(modtime)) {
 					if etag != "" {
 						ctx.Buffer.Header().Set("ETag", etag)

@@ -19,6 +19,8 @@ type Object struct {
 }
 
 func TestEncoder(t *testing.T) {
+	var bb bytes.Buffer
+
 	xmlstr := []byte(`<?xml version="1.0" encoding="UTF-8"?>
 <object number="12345">
 	<name>Full Name</name>
@@ -40,11 +42,11 @@ func TestEncoder(t *testing.T) {
 		t.Error(err.Error())
 	}
 
-	b, err := encoder.Encode(object)
+	err = encoder.Encode(&bb, object)
 	if err != nil {
 		t.Error(err.Error())
 	}
-	if string(xmlstr) != string(b) {
+	if string(xmlstr) != bb.String() {
 		t.Errorf("expected xmlstr but got something else.")
 	}
 }

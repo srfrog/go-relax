@@ -42,19 +42,31 @@ func (f *FilterGzip) Run(next HandlerFunc) HandlerFunc {
 		ctx.Info.Set("content.gzip", false)
 		ctx.Header().Add("Vary", "Accept-Encoding")
 
-		// BUG(TODO): FilterGzip is not checking header values for qvalue or identity
-		h := ctx.Request.Header.Get("Accept-Encoding")
-		if f.CompressionLevel == 0 || !(strings.Contains(h, "gzip") || h == "*") {
-			Log.Printf(LogDebug, "%s gzip: compression disabled (h=%q)", ctx.Info.Get("context.request_id"), h)
+		encodings := ctx.Request.Header.Get("Accept-Encoding")
+		if f.CompressionLevel == 0 || !(strings.Contains(encodings, "gzip") || encodings == "*") {
 			next(ctx)
 			return
 		}
 
-		// already gzipped
+		// don't compress ranged responses.
 		if ctx.Request.Header.Get("If-Range") != "" {
-			Log.Printf(LogDebug, "%s gzip: compression disabled (range)", ctx.Info.Get("context.request_id"))
 			next(ctx)
 			return
+		}
+
+		// Check for encoding preferences.
+		if prefs, err := ParsePreferences(encodings); err == nil && len(prefs) > 1 {
+			if xgzip, ok := prefs["x-gzip"]; ok {
+				prefs["gzip"] = xgzip
+			}
+			for _, value := range prefs {
+				// Client prefers another encoding better, we may support it in another
+				// filter. Let that filter handle it instead.
+				if value > prefs["gzip"] {
+					next(ctx)
+					return
+				}
+			}
 		}
 
 		next(ctx.Capture()) // start buffering
@@ -65,21 +77,16 @@ func (f *FilterGzip) Run(next HandlerFunc) HandlerFunc {
 			ctx.WriteHeader(304)
 			break
 		case ctx.Buffer.Status() == 204, ctx.Buffer.Status() > 299, ctx.Buffer.Status() < 200:
-			Log.Printf(LogDebug, "%s gzip: compression disabled (status=%d)", ctx.Info.Get("context.request_id"), ctx.Buffer.Status())
 			break
 		case ctx.Buffer.Header().Get("Content-Range") != "":
-			Log.Printf(LogDebug, "%s gzip: compression disabled (content-range)", ctx.Info.Get("context.request_id"))
 			break
 		case strings.Contains(ctx.Buffer.Header().Get("Content-Encoding"), "gzip"):
-			Log.Printf(LogDebug, "%s gzip: compression disabled (already gzip'ed)", ctx.Info.Get("context.request_id"))
 			break
 		case ctx.Buffer.Len() < f.MinLength:
-			Log.Printf(LogDebug, "%s gzip: compression disabled (content too small)", ctx.Info.Get("context.request_id"))
 			break
 		default:
 			gz, err := gzip.NewWriterLevel(ctx.ResponseWriter, f.CompressionLevel)
 			if err != nil {
-				Log.Println(LogCrit, "gzip: compression failed:", err.Error())
 				break
 			} else {
 				defer gz.Close()
