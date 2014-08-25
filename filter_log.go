@@ -101,9 +101,9 @@ func (ctx *Context) Format(f fmt.State, c rune) {
 	case 'a':
 		if f.Flag('#') {
 			str = ctx.ProxyClient()
-		} else {
-			str = ctx.Request.RemoteAddr
+			break
 		}
+		str = ctx.Request.RemoteAddr
 	case 'b':
 		if ctx.Bytes() == 0 {
 			f.Write([]byte{45})
@@ -167,9 +167,9 @@ func (ctx *Context) Format(f fmt.State, c rune) {
 		s := strings.Split(ctx.Request.Host, ":")
 		if len(s) > 1 {
 			str = s[1]
-		} else {
-			str = "80"
+			break
 		}
+		str = "80"
 	case 'R':
 		str = ctx.Request.Referer()
 	case 'U':
