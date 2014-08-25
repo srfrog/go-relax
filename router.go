@@ -272,7 +272,7 @@ func (router *trieRegexpRouter) FindHandler(ctx *Context) (HandlerFunc, error) {
 	node := router.root
 	pseg := strings.Split(method+strings.TrimRight(ctx.Request.URL.Path, "/"), "/")
 	slen := len(pseg)
-	for i := range pseg {
+	for i := range make([]struct{}, slen) {
 		if node == nil {
 			if i <= 1 {
 				return nil, ErrRouteBadMethod

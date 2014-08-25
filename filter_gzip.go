@@ -87,25 +87,26 @@ func (f *FilterGzip) Run(next HandlerFunc) HandlerFunc {
 		default:
 			gz, err := gzip.NewWriterLevel(ctx.ResponseWriter, f.CompressionLevel)
 			if err != nil {
-				break
-			} else {
-				defer gz.Close()
-				ctx.Buffer.Header().Add("Content-Encoding", "gzip")
-
-				// Only set if gzip actually happened.
-				ctx.Info.Set("content.gzip", true)
-
-				// Check if ETag is set, alter it to reflect gzip content.
-				if etag := ctx.Buffer.Header().Get("ETag"); etag != "" && !strings.Contains(etag, "gzip") {
-					etagGzip := strings.TrimSuffix(etag, `"`) + `-gzip"`
-					ctx.Buffer.Header().Set("ETag", etagGzip)
-				}
-
-				ctx.Buffer.FlushHeader(ctx.ResponseWriter)
-				ctx.Buffer.WriteTo(gz)
-				ctx.Buffer.Free()
-				ctx.Buffer = nil // stop Context.Relase from flushing
+				ctx.Release()
+				return
 			}
+			defer gz.Close()
+
+			// Only set if gzip actually happened.
+			ctx.Info.Set("content.gzip", true)
+
+			ctx.Buffer.Header().Add("Content-Encoding", "gzip")
+
+			// Check if ETag is set, alter it to reflect gzip content.
+			if etag := ctx.Buffer.Header().Get("ETag"); etag != "" && !strings.Contains(etag, "gzip") {
+				etagGzip := strings.TrimSuffix(etag, `"`) + `-gzip"`
+				ctx.Buffer.Header().Set("ETag", etagGzip)
+			}
+
+			ctx.Buffer.FlushHeader(ctx.ResponseWriter)
+			ctx.Buffer.WriteTo(gz)
+			ctx.Buffer.Free()
+			ctx.Buffer = nil // stop Context.Relase from flushing
 		}
 
 		ctx.Release() // finish buffering

@@ -40,8 +40,9 @@ Also, check the [wiki](https://github.com/codehack/go-relax/wiki) for Howto's an
 - [x] Logging - custom logging with pre- and post- request event support.
 - [x] Method override - GET/POST method override via HTTP header and query string.
 - [x] Security - Various security practices for request handling.
+- [x] Limits - request throttler, token-based rate limiter, and memory limits.
 - [ ] RestCop (Constraints Output Profiler) - it warns you when your responses are not RESTful.
-- [ ] Ratelimit - token-based rate limiter, to prevent abuse and control burstiness.
+- [ ] Status - system status.
 
 ## Documentation
 
@@ -59,8 +60,6 @@ package main
 
 import (
    "github.com/codehack/go-relax"
-   "log"
-   "net/http"
 )
 
 type Hello string
@@ -73,7 +72,7 @@ func main() {
    h := Hello("hello world!")
    svc := relax.NewService("http://api.company.com/")
    svc.Resource(&h)
-   log.Fatal(http.ListenAndServe(":8000", svc))
+   svc.Run()
 }
 ```
 

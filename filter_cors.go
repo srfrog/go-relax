@@ -104,18 +104,19 @@ type FilterCORS struct {
 
 func (f *FilterCORS) corsHeaders(origin string) http.Header {
 	headers := make(http.Header, 0)
-	if f.AllowCredentials {
+	switch {
+	case f.AllowCredentials:
 		headers.Set("Access-Control-Allow-Origin", origin)
 		headers.Set("Access-Control-Allow-Credentials", "true")
 		headers.Add("Vary", "Origin")
-	} else if f.Strict {
+	case f.Strict:
 		if f.AllowOrigin == nil {
 			headers.Set("Access-Control-Allow-Origin", "null")
-		} else {
-			headers.Set("Access-Control-Allow-Origin", origin)
-			headers.Add("Vary", "Origin")
+			return headers
 		}
-	} else {
+		headers.Set("Access-Control-Allow-Origin", origin)
+		headers.Add("Vary", "Origin")
+	default:
 		headers.Set("Access-Control-Allow-Origin", "*")
 	}
 	return headers

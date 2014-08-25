@@ -40,6 +40,8 @@ type Service struct {
 	uptime time.Time
 	// logger is the service logging system.
 	logger Logger
+	// Recovery is a handler function used to intervene after panic occur.
+	Recovery http.HandlerFunc
 }
 
 // ServiceOptions has a description of the options available for using
@@ -57,11 +59,11 @@ type ServiceOptions struct {
 // Logf prints an log entry to logger if set, or stdlog if nil.
 // Based on the unexported function logf() in ``net/http``.
 func (svc *Service) Logf(format string, args ...interface{}) {
-	if svc.logger != nil {
-		svc.logger.Printf(format, args...)
-	} else {
+	if svc.logger == nil {
 		log.Printf(format, args...)
+		return
 	}
+	svc.logger.Printf(format, args...)
 }
 
 // getPath returns the base path of this service.
@@ -157,11 +159,17 @@ func (svc *Service) dispatch(ctx *Context) {
 	handler(ctx)
 }
 
+// InternalServerError responds with HTTP status code 500-"Internal Server Error".
+// This function is the default service recovery handler.
+func InternalServerError(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+}
+
 /*
 Adapter creates a new request context, sets default HTTP headers, creates the
 link-chain of service filters, then passes the request to content negotiation.
-Also, it will create a recovery function for panics, that responds with HTTP status
-500 and logs the actual event.
+Also, it uses a recovery function for panics, that responds with HTTP status
+500-"Internal Server Error" and logs the event.
 
 Info passed down by the adapter:
 
@@ -178,11 +186,17 @@ func (svc *Service) Adapter() http.HandlerFunc {
 	handler = svc.Content(handler)
 
 	return func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				svc.Recovery(w, r)
+				svc.Logf("relax: Panic recovery: %s", err)
+			}
+		}()
+
 		when, ctx := time.Now(), NewContext(w, r)
 		defer ctx.Free()
 
 		requestID := NewRequestID(r.Header.Get("Request-Id"))
-
 		ctx.Info.Set("context.start_time", when)
 		ctx.Info.Set("context.request_id", requestID)
 
@@ -190,13 +204,6 @@ func (svc *Service) Adapter() http.HandlerFunc {
 		ctx.Header().Set("Server", "Go-Relax/"+Version)
 		ctx.Header().Set("Request-Id", requestID)
 		ctx.Header().Add(LinkHeader(r.URL.Path, `rel="self"`))
-
-		defer func() {
-			if err := recover(); err != nil {
-				http.Error(ctx, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-				svc.Logf("relax: Panic recovery: %s", err)
-			}
-		}()
 
 		handler(ctx)
 	}
@@ -352,24 +359,23 @@ Run(":3000") is equivalent to:
 	...
 	http.ListenAndServe(":3000", nil)
 
-Run("10.1.1.100:10443", "api/cert.pem", "api/key.pem") is eq. to:
+Run("10.1.1.100:10443", "tls/cert.pem", "tls/key.pem") is eq. to:
 	...
-	http.ListenAndServeTLS("10.1.1.100:10443", "api/cert.pem", "api/key.pem", nil)
+	http.ListenAndServeTLS("10.1.1.100:10443", "tls/cert.pem", "tls/key.pem", nil)
 
 If the key file is missing, TLS is not used.
 
 */
 func (svc *Service) Run(args ...string) {
-	var addr string
 	var err error
 
+	addr := ":8000"
 	if args != nil {
 		addr = args[0]
-	} else {
-		addr = ":8000"
 	}
 
 	http.Handle(svc.Handler())
+
 	if len(args) == 3 {
 		svc.Logf("relax: Listening on %q (TLS)", addr)
 		err = http.ListenAndServeTLS(addr, args[1], args[2], nil)
@@ -418,6 +424,7 @@ func NewService(uri string, entities ...interface{}) *Service {
 		resources: make([]*Resource, 0),
 		links:     make([]*Link, 0),
 		uptime:    time.Now(),
+		Recovery:  InternalServerError,
 	}
 
 	// Set the default encoder, EncoderJSON
