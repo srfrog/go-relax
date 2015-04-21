@@ -7,6 +7,7 @@ package limits_test
 import (
 	"github.com/codehack/go-relax"
 	"github.com/codehack/go-relax/limits"
+	"time"
 )
 
 type Count int
@@ -26,7 +27,11 @@ func Example_basic() {
 	svc.Use(&limits.Memory{Alloc: 250 * 1024})
 
 	// Throttle limit, 1 request per 200ms
-	svc.Use(&limits.Throttle{})
+	svc.Use(&limits.Throttle{
+		Burst:    5,
+		Requests: 1,
+		Per:      time.Minute * 3,
+	})
 
 	// Usage limit check, 10 tokens
 	svc.Use(&limits.Usage{

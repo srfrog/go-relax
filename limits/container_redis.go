@@ -33,6 +33,8 @@ func (b *RedisBucket) Consume(key string, n int) (int, int, bool) {
 }
 
 func (b *RedisBucket) Reset(key string) {
+	c := b.Pool.Get()
+	defer c.Close()
 	panicIf(c.Send("SET", key, b.Size, "EX", b.wait(b.Size), "XX"))
 }
 

@@ -13,11 +13,7 @@ import (
 )
 
 // Global memstats, shared by all Filter objects.
-var c0 struct {
-	runtime.MemStats
-	ticker <-chan time.Time
-	cycle  chan time.Time
-}
+var c0 runtime.MemStats
 
 // Memory sets limits on application and system memory usage. The memory
 // stats are updated every minute and compared. If any limit is reached,
@@ -63,16 +59,14 @@ func (f *Memory) Run(next relax.HandlerFunc) relax.HandlerFunc {
 
 // updateMemStats will update our MemStats values every minute.
 func updateMemStats() {
-	c0.cycle = make(chan time.Time, 1)
-	c0.ticker = time.Tick(time.Minute)
-	for now := range c0.ticker {
+	for _ = range time.Tick(time.Minute) {
 		runtime.MemProfileRate = 0
-		runtime.ReadMemStats(&c0.MemStats)
-		println(now.String(), "Alloc:", c0.Alloc, "TotalAlloc:", c0.TotalAlloc, "Sys:", c0.Sys)
-		c0.cycle <- now
+		runtime.ReadMemStats(&c0)
 	}
 }
 
 func init() {
+	runtime.MemProfileRate = 0
+	runtime.ReadMemStats(&c0)
 	go updateMemStats()
 }

@@ -17,11 +17,11 @@ import (
 // TB is useful for limiting number of requests and burstiness.
 //
 // Each client is assigned a (semi) unique key and given a bucket of tokens
-// to spend per request. If a client consumes all his tokens, a response is
+// to spend per request. If a client consumes all its tokens, a response is
 // sent with HTTP status 429-"Too Many Requests". At this time the client won't
 // be allowed any more requests until a renewal period has passed. Repeated
 // attempts while the timeout is in effect will simply reset the timer,
-// prolonging the wait and dropping the requests.
+// prolonging the wait and dropping then new request.
 //
 // See also, https://en.wikipedia.org/wiki/Token_bucket
 type Usage struct {
@@ -62,7 +62,6 @@ func (f *Usage) Run(next relax.HandlerFunc) relax.HandlerFunc {
 	return func(ctx *relax.Context) {
 		// Usage limits
 		key := f.Keygen(*ctx)
-		// println("KEY", key)
 		tokens, when, ok := f.Consume(key, f.Ration)
 		if !ok {
 			ctx.Header().Set("Retry-After", strconv.Itoa(when))
