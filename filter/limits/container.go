@@ -1,4 +1,5 @@
-// Copyright 2014 Codehack.com All rights reserved.
+// Copyright 2014-present Codehack. All rights reserved. 
+// For mobile and web development visit http://codehack.com
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
@@ -9,7 +10,7 @@ import (
 	"time"
 )
 
-// Objects that implement the Container interface can serve as token bucket
+// Container objects that implement this interface can serve as token bucket
 // containers.
 type Container interface {
 	// Capacity returns the max number of tokens per client.
@@ -48,10 +49,12 @@ func NewMemBucket(maxKeys, capacity, rate int) Container {
 	}
 }
 
+// Capacity returns the total size of the container (bucket)
 func (b *MemBucket) Capacity() int {
 	return b.Size
 }
 
+// Consume removes a token from the key-indexed bucket at n-rate.
 func (b *MemBucket) Consume(key string, n int) (int, int, bool) {
 	tb := b.fill(key)
 	if tb.Tokens < n {
@@ -61,6 +64,7 @@ func (b *MemBucket) Consume(key string, n int) (int, int, bool) {
 	return tb.Tokens, b.wait(b.Size), true
 }
 
+// Reset re-fills the bucket and resets the rate.
 func (b *MemBucket) Reset(key string) {
 	cache, ok := b.Cache.Get(key)
 	if ok {
@@ -93,13 +97,4 @@ func (b *MemBucket) fill(key string) *tokenBucket {
 	}
 	tb.When = now
 	return tb
-}
-
-// Min returns the smaller integer between a and b.
-// If a is lesser than b it returns a, otherwise returns b.
-func Min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

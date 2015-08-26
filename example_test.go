@@ -1,4 +1,5 @@
-// Copyright 2014 Codehack.com All rights reserved.
+// Copyright 2014-present Codehack. All rights reserved.
+// For mobile and web development visit http://codehack.com
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
@@ -6,6 +7,13 @@ package relax_test
 
 import (
 	"github.com/codehack/go-relax"
+	"github.com/codehack/go-relax/filter/authbasic"
+	"github.com/codehack/go-relax/filter/cors"
+	"github.com/codehack/go-relax/filter/etag"
+	"github.com/codehack/go-relax/filter/gzip"
+	"github.com/codehack/go-relax/filter/logs"
+	"github.com/codehack/go-relax/filter/override"
+	"github.com/codehack/go-relax/filter/security"
 	"log"
 	"net/http"
 	"strconv"
@@ -128,24 +136,24 @@ func Example_basic() {
 
 	// Create a service under "/v1". If using absolute URI, it will limit requests
 	// to a specific host. This service has FilterLog as service-level filter.
-	svc := relax.NewService("/v1", &relax.FilterLog{})
+	svc := relax.NewService("/v1", &logs.Filter{})
 
 	// More service-level filters (these could go inside NewService()).
-	svc.Use(&relax.FilterETag{}) // ETag with cache conditionals
-	svc.Use(&relax.FilterCORS{
+	svc.Use(&etag.Filter{}) // ETag with cache conditionals
+	svc.Use(&cors.Filter{
 		AllowAnyOrigin:   true,
 		AllowCredentials: true,
 	})
-	svc.Use(&relax.FilterGzip{})     // on-the-fly gzip encoding
-	svc.Use(&relax.FilterOverride{}) // method override support
+	svc.Use(&gzip.Filter{})     // on-the-fly gzip encoding
+	svc.Use(&override.Filter{}) // method override support
 
 	// I prefer pretty indentation.
-	json := relax.NewEncoderJSON()
+	json := relax.NewEncoder()
 	json.Indented = true
 	svc.Use(json)
 
 	// Basic authentication, used as needed.
-	needsAuth := &relax.FilterAuthBasic{
+	needsAuth := &authbasic.Filter{
 		Realm: "Masters of Science",
 		Authenticate: func(user, pass string) bool {
 			if user == "Pi" && pass == "3.14159" {
@@ -156,8 +164,8 @@ func Example_basic() {
 	}
 
 	// Serve our resource with CRUD routes, using unsigned ints as ID's.
-	// This resource has FilterSecurity as resource-level filter.
-	res := svc.Resource(users, &relax.FilterSecurity{CacheDisable: true}).CRUD("{uint:id}")
+	// This resource has Security filter at resource-level.
+	res := svc.Resource(users, &security.Filter{CacheDisable: true}).CRUD("{uint:id}")
 	{
 		// Although CRUD added a route for "DELETE /v1/users/{uint:id}",
 		// we can change it here and respond with status 418.

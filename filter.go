@@ -1,12 +1,9 @@
-// Copyright 2014 Codehack.com All rights reserved.
+// Copyright 2014-present Codehack. All rights reserved.
+// For mobile and web development visit http://codehack.com
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
 package relax
-
-// HandlerFunc is simply a version of http.HandlerFunc that uses Context.
-// All filters must return and accept this type.
-type HandlerFunc func(*Context)
 
 /*
 Filter is a function closure that is chained in FILO (First-In Last-Out) order.
