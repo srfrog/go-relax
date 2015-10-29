@@ -188,15 +188,15 @@ func segmentExp(pattern string) *regexp.Regexp {
 		ReplaceAllStringFunc(p, func(m string) string {
 		return fmt.Sprintf(`(?P<%s>[\-+]?\d+\.\d+)`, m[7:len(m)-1])
 	})
-	// uint: matches an unsigned integer number (assume 32bit)
+	// uint: matches an unsigned integer number (64bit)
 	p = regexp.MustCompile(`\{(?:uint\:)\w+\}`).
 		ReplaceAllStringFunc(p, func(m string) string {
-		return fmt.Sprintf(`(?P<%s>\d{1,10})`, m[6:len(m)-1])
+		return fmt.Sprintf(`(?P<%s>\d{1,18})`, m[6:len(m)-1])
 	})
-	// int: matches a signed integer number (assume 32bit)
+	// int: matches a signed integer number (64bit)
 	p = regexp.MustCompile(`\{(?:int\:)\w+\}`).
 		ReplaceAllStringFunc(p, func(m string) string {
-		return fmt.Sprintf(`(?P<%s>[-+]?\d{1,10})`, m[5:len(m)-1])
+		return fmt.Sprintf(`(?P<%s>[-+]?\d{1,18})`, m[5:len(m)-1])
 	})
 	return regexp.MustCompile(p)
 }
