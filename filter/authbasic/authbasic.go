@@ -1,19 +1,21 @@
-// Copyright 2014 Codehack.com All rights reserved.
+// Copyright 2014-present Codehack. All rights reserved.
+// For mobile and web development visit http://codehack.com
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-package relax
+package authbasic
 
 import (
 	"encoding/base64"
 	"errors"
+	"github.com/codehack/go-relax"
 	"net/http"
 	"strings"
 )
 
-// FilterAuthBasic is a Filter that implements HTTP Basic Authentication as
+// Filter AuthBasic is a Filter that implements HTTP Basic Authentication as
 // described in http://www.ietf.org/rfc/rfc2617.txt
-type FilterAuthBasic struct {
+type Filter struct {
 	// Realm is the authentication realm.
 	// This defaults to "Authorization Required"
 	Realm string
@@ -27,7 +29,7 @@ type FilterAuthBasic struct {
 	Authenticate func(string, string) bool
 }
 
-// Errors returned by FilterAuthBasic that are general and could be reused.
+// Errors returned by Filter AuthBasic that are general and could be reused.
 var (
 	// ErrAuthInvalidRequest is returned when the auth request don't match the expected
 	// challenge.
@@ -64,9 +66,11 @@ func getUserPass(header string) ([]string, error) {
 }
 
 // Run runs the filter and passes down the following Info:
-//		ctx.Info.Get("auth.user") // auth user
-//		ctx.Info.Get("auth.type") // auth scheme type. e.g., "basic"
-func (f *FilterAuthBasic) Run(next HandlerFunc) HandlerFunc {
+//
+//		ctx.Get("auth.user") // auth user
+//		ctx.Get("auth.type") // auth scheme type. e.g., "basic"
+//
+func (f *Filter) Run(next relax.HandlerFunc) relax.HandlerFunc {
 	if f.Realm == "" {
 		f.Realm = "Authorization Required"
 	}
@@ -76,7 +80,7 @@ func (f *FilterAuthBasic) Run(next HandlerFunc) HandlerFunc {
 		f.Authenticate = denyAllAccess
 	}
 
-	return func(ctx *Context) {
+	return func(ctx *relax.Context) {
 		header := ctx.Request.Header.Get("Authorization")
 		if header == "" {
 			MustAuthenticate(ctx, "Basic realm=\""+f.Realm+"\"")
@@ -94,8 +98,8 @@ func (f *FilterAuthBasic) Run(next HandlerFunc) HandlerFunc {
 			return
 		}
 
-		ctx.Info.Set("auth.user", userpass[0])
-		ctx.Info.Set("auth.type", "basic")
+		ctx.Set("auth.user", userpass[0])
+		ctx.Set("auth.type", "basic")
 
 		next(ctx)
 	}

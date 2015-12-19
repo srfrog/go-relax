@@ -1,41 +1,36 @@
-// Copyright 2014 Codehack.com All rights reserved.
+// Copyright 2014-present Codehack. All rights reserved.
+// For mobile and web development visit http://codehack.com
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
 package relax
 
 import (
-	"github.com/codehack/go-environ"
+	"fmt"
+	"golang.org/x/net/context"
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
-// These status codes are inaccessible in net/http but they work with http.StatusText().
-// They are included here as they might be useful.
-// See also, https://tools.ietf.org/html/rfc6585
-const (
-	StatusPreconditionRequired          = 428
-	StatusTooManyRequests               = 429
-	StatusRequestHeaderFieldsTooLarge   = 431
-	StatusNetworkAuthenticationRequired = 511
-)
+// HandlerFunc is simply a version of http.HandlerFunc that uses Context.
+// All filters must return and accept this type.
+type HandlerFunc func(*Context)
 
 // Context has information about the request and filters. It implements
 // http.ResponseWriter.
 type Context struct {
+	context.Context
+
 	// ResponseWriter is the response object passed from ``net/http``.
 	http.ResponseWriter
 	wroteHeader bool
 	status      int
 	bytes       int
-
-	// Buffer points to a buffered context, started with Context.Capture.
-	// If not capturing, Buffer is nil.
-	// See also: ResponseBuffer
-	Buffer *ResponseBuffer
 
 	// Request points to the http.Request information for this request.
 	Request *http.Request
@@ -43,6 +38,7 @@ type Context struct {
 	// PathValues contains the values matched in PSEs by the router. It is a
 	// name=values map (map[string][]string).
 	// Examples:
+	//
 	//		ctx.PathValues.Get("username") // returns the first value for "username"
 	//		ctx.PathValues.Get("_2")       // values are also accessible by index
 	//		ctx.PathValues["colors"]       // if more than one color value.
@@ -50,16 +46,10 @@ type Context struct {
 	// See also: Router, url.Values
 	PathValues url.Values
 
-	// Info contains information passed down from processed filters.
-	// To print all values to stdout use:
-	//		ctx.Info.Print()
-	//
-	// For usage, see http://github.com/codehack/go-environ
-	Info *environ.Env
-
 	// Encode is the media encoding function requested by the client.
 	// To see the media type use:
-	//		ctx.Info.Get("content.encoding")
+	//
+	//		ctx.Get("content.encoding")
 	//
 	// See also: Encoder.Encode
 	Encode func(io.Writer, interface{}) error
@@ -68,7 +58,8 @@ type Context struct {
 	// object that implements io.Reader, usually Request.Body. Then it will decode
 	// the data and try to save it into a variable interface.
 	// To see the media type use:
-	//		ctx.Info.Get("content.decoding")
+	//
+	//		ctx.Get("content.decoding")
 	//
 	// See also: Encoder.Decode
 	Decode func(io.Reader, interface{}) error
@@ -79,42 +70,24 @@ var contextPool = sync.Pool{
 	New: func() interface{} { return new(Context) },
 }
 
-// NewContext returns a new Context object.
+// newContext returns a new Context object.
 // This function will alter Request.URL, adding scheme and host:port as provided by the client.
-func NewContext(w http.ResponseWriter, r *http.Request) *Context {
+func newContext(parent context.Context, w http.ResponseWriter, r *http.Request) *Context {
 	ctx := contextPool.Get().(*Context)
+	ctx.Context = parent
 	ctx.ResponseWriter = w
 	ctx.Request = r
-	ctx.Info = environ.NewEnv()
-
-	// this little hack to make net/url work with full URLs.
-	// net/http doesn't fill these for server requests, but we need them.
-	if r.URL.Scheme == "" {
-		r.URL.Scheme = "http"
-		if ctx.IsSSL() {
-			r.URL.Scheme += "s"
-		}
-	}
-	if r.URL.Host == "" {
-		r.URL.Host = r.Host
-	}
-
 	return ctx
 }
 
-// Free frees a Context object back to the usage pool for later, to conserve
+// free frees a Context object back to the usage pool for later, to conserve
 // system resources.
-func (ctx *Context) Free() {
+func (ctx *Context) free() {
 	ctx.ResponseWriter = nil
 	ctx.wroteHeader = false
 	ctx.status = 0
 	ctx.bytes = 0
-	if ctx.Buffer != nil {
-		ctx.Buffer.Free()
-		ctx.Buffer = nil
-	}
 	ctx.PathValues = nil
-	ctx.Info.Free()
 	ctx.Decode = nil
 	ctx.Encode = nil
 	contextPool.Put(ctx)
@@ -123,82 +96,27 @@ func (ctx *Context) Free() {
 // Clone returns a shallow cloned context using 'w', an http.ResponseWriter object.
 // If 'w' is nil, the ResponseWriter value can be assigned after cloning.
 func (ctx *Context) Clone(w http.ResponseWriter) *Context {
-	clone := NewContext(w, ctx.Request)
+	clone := contextPool.Get().(*Context)
+	clone.Context = ctx.Context
+	clone.ResponseWriter = w
+	clone.Request = ctx.Request
 	clone.PathValues = ctx.PathValues
-	clone.Info = ctx.Info
+	clone.bytes = ctx.bytes
 	clone.Decode = ctx.Decode
 	clone.Encode = ctx.Encode
 	return clone
 }
 
-// Capture starts a buffered context. All writes are diverted to a ResponseBuffer.
-// Capture expects a call to Context.Release to end capturing.
-// Returns a new buffered Context.
-// See also: NewResponseBuffer, Context.Release
-func (ctx *Context) Capture() *Context {
-	ctx.Buffer = NewResponseBuffer(ctx.ResponseWriter)
-	return ctx.Clone(ctx.Buffer)
+// Set stores the value of key in the Context k/v tree.
+func (ctx *Context) Set(key string, value interface{}) {
+	ctx.Context = context.WithValue(ctx.Context, key, value)
 }
 
-// Release ends capturing within the context. Every Capture call needs
-// a Release, otherwise the buffer will over-extend and the response will fail.
-// You may or not defer this call after Capture, it depends on your state.
-func (ctx *Context) Release() {
-	if ctx.Buffer != nil {
-		ctx.Buffer.Flush(ctx)
-		ctx.Buffer = nil
-	}
-}
-
-// IsSSL returns true if the context request is done via SSL/TLS.
-// SSL status is guessed from value of Request.TLS. It also checks the value
-// of the X-Forwarded-Proto header, in case the request is proxied.
-func (ctx *Context) IsSSL() bool {
-	return (ctx.Request.TLS != nil || ctx.Request.URL.Scheme == "https" || ctx.Request.Header.Get("X-Forwarded-Proto") == "https")
-}
-
-// ProxyClient returns the client address if the request is proxied. This is
-// a best-guess based on the headers sent. The function will check the following
-// headers, in order, to find a proxied client: Forwarded, X-Forwarded-For and
-// X-Real-IP.
-// Returns the client address or "unknown".
-func (ctx *Context) ProxyClient() string {
-	client := ctx.Info.Get("proxy_client")
-	if client != "" {
-		return client
-	}
-	// check if the IP address is hidden behind a proxy request.
-	switch {
-	default:
-		// See http://tools.ietf.org/html/rfc7239
-		if v := ctx.Request.Header.Get("Forwarded"); v != "" {
-			values := strings.Split(v, ",")
-			if strings.HasPrefix(values[0], "for=") {
-				value := strings.Trim(values[0][4:], `"][`)
-				if value[0] != '_' {
-					client = value
-					break
-				}
-			}
-		}
-
-		if v := ctx.Request.Header.Get("X-Forwarded-For"); v != "" {
-			values := strings.Split(v, ", ")
-			if values[0] != "unknown" {
-				client = values[0]
-				break
-			}
-		}
-
-		if v := ctx.Request.Header.Get("X-Real-IP"); v != "" {
-			client = v
-			break
-		}
-
-		client = "unknown"
-	}
-	ctx.Info.Set("proxy_client", client)
-	return client
+// Get retrieves the value of key from Context storage. The value is returned
+// as an interface so it must be converted to an actual type. If the type implements
+// fmt.Stringer then it may be used by functions that expect a string.
+func (ctx *Context) Get(key string) interface{} {
+	return ctx.Context.Value(key)
 }
 
 // Header implements ResponseWriter.Header
@@ -290,4 +208,136 @@ func (ctx *Context) Error(code int, message string, details ...interface{}) {
 		response.Details = details[0]
 	}
 	ctx.Respond(response, code)
+}
+
+/*
+Format implements the fmt.Formatter interface, based on Apache HTTP's
+CustomLog directive. This allows a Context object to have Sprintf verbs for
+its values. See: https://httpd.apache.org/docs/2.4/mod/mod_log_config.html#formats
+
+	Verb	Description
+	----	---------------------------------------------------
+
+	%%  	Percent sign
+	%a  	Client remote address
+	%b  	Size of reponse in bytes, excluding headers. Or '-' if zero.
+	%#a 	Proxy client address, or unknown.
+	%h  	Remote hostname. Will perform lookup.
+	%l  	Remote ident, will write '-' (only for Apache log support).
+	%m  	Request method
+	%q  	Request query string.
+	%r  	Request line.
+	%#r 	Request line without protocol.
+	%s  	Response status code.
+	%#s 	Response status code and text.
+	%t  	Request time, as string.
+	%u  	Remote user, if any.
+	%v  	Request host name.
+	%A  	User agent.
+	%B  	Size of reponse in bytes, excluding headers.
+	%D  	Time lapsed to serve request, in seconds.
+	%H  	Request protocol.
+	%I  	Bytes received.
+	%L  	Request ID.
+	%P  	Server port used.
+	%R  	Referer.
+	%U  	Request path.
+
+Example:
+
+	// Print request line and remote address.
+	// Index [1] needed to reuse ctx argument.
+	fmt.Printf("\"%r\" %[1]a", ctx)
+	// Output:
+	// "GET /v1/" 192.168.1.10
+
+*/
+func (ctx *Context) Format(f fmt.State, c rune) {
+	var str string
+
+	p, pok := f.Precision()
+	if !pok {
+		p = -1
+	}
+
+	switch c {
+	case 'a':
+		if f.Flag('#') {
+			str = GetRealIP(ctx.Request)
+			break
+		}
+		str = ctx.Request.RemoteAddr
+	case 'b':
+		if ctx.Bytes() == 0 {
+			f.Write([]byte{45})
+			return
+		}
+		fallthrough
+	case 'B':
+		str = strconv.Itoa(ctx.Bytes())
+	case 'h':
+		t := strings.Split(ctx.Request.RemoteAddr, ":")
+		str = t[0]
+	case 'l':
+		f.Write([]byte{45})
+		return
+	case 'm':
+		str = ctx.Request.Method
+	case 'q':
+		str = ctx.Request.URL.RawQuery
+	case 'r':
+		str = ctx.Request.Method + " " + ctx.Request.URL.RequestURI()
+		if f.Flag('#') {
+			break
+		}
+		str += " " + ctx.Request.Proto
+	case 's':
+		str = strconv.Itoa(ctx.Status())
+		if f.Flag('#') {
+			str += " " + http.StatusText(ctx.Status())
+		}
+	case 't':
+		t := ctx.Get("request.start_time").(time.Time)
+		str = t.Format("[02/Jan/2006:15:04:05 -0700]")
+	case 'u':
+		// XXX: i dont think net/http sets User
+		if ctx.Request.URL.User == nil {
+			f.Write([]byte{45})
+			return
+		}
+		str = ctx.Request.URL.User.Username()
+	case 'v':
+		str = ctx.Request.Host
+	case 'A':
+		str = ctx.Request.UserAgent()
+	case 'D':
+		when := ctx.Get("request.start_time").(time.Time)
+		if when.IsZero() {
+			f.Write([]byte("%!(BADTIME)"))
+			return
+		}
+		pok = false
+		str = strconv.FormatFloat(time.Since(when).Seconds(), 'f', p, 32)
+	case 'H':
+		str = ctx.Request.Proto
+	case 'I':
+		str = fmt.Sprintf("%d", ctx.Request.ContentLength)
+	case 'L':
+		str = ctx.Get("request.id").(string)
+	case 'P':
+		s := strings.Split(ctx.Request.Host, ":")
+		if len(s) > 1 {
+			str = s[1]
+			break
+		}
+		str = "80"
+	case 'R':
+		str = ctx.Request.Referer()
+	case 'U':
+		str = ctx.Request.URL.Path
+	}
+	if pok {
+		str = str[:p]
+	}
+	f.Write([]byte(str))
 }

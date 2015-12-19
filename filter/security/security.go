@@ -1,10 +1,12 @@
-// Copyright 2014 Codehack.com All rights reserved.
+// Copyright 2014-present Codehack. All rights reserved.
+// For mobile and web development visit http://codehack.com
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-package relax
+package security
 
 import (
+	"github.com/codehack/go-relax"
 	"net/http"
 )
 
@@ -16,11 +18,11 @@ const (
 	securityPragmaDefault = "no-cache"
 )
 
-// FilterSecurity is a Filter that provides some security options and checks.
+// Filter Security provides some security options and checks.
 // Most of the options are HTTP headers sent back so that web clients can
 // adjust their configuration.
 // See https://www.owasp.org/index.php/List_of_useful_HTTP_headers
-type FilterSecurity struct {
+type Filter struct {
 	// UACheckDisable if false, a check is done to see if the client sent a valid non-emtpy
 	// User-Agent header with the request.
 	// Defaults to false.
@@ -88,9 +90,8 @@ type FilterSecurity struct {
 	PragmaDisable bool
 }
 
-// Run runs the filter and passes down the following Info:
-//		ctx.Info.Get("security.sts") // boolean; whether STS was enabled.
-func (f *FilterSecurity) Run(next HandlerFunc) HandlerFunc {
+// Run runs the filter.
+func (f *Filter) Run(next relax.HandlerFunc) relax.HandlerFunc {
 	if f.UACheckErrMsg == "" {
 		f.UACheckErrMsg = securityUACheckErr
 	}
@@ -103,7 +104,7 @@ func (f *FilterSecurity) Run(next HandlerFunc) HandlerFunc {
 	if f.CacheOptions == "" {
 		f.CacheOptions = securityCacheDefault
 	}
-	return func(ctx *Context) {
+	return func(ctx *relax.Context) {
 		if !f.UACheckDisable {
 			ua := ctx.Request.UserAgent()
 			if ua == "" || ua == "Go 1.1 package http" {
@@ -121,9 +122,8 @@ func (f *FilterSecurity) Run(next HandlerFunc) HandlerFunc {
 		}
 
 		// turn off HSTS if not on secure connection.
-		if !f.HSTSDisable && ctx.IsSSL() {
+		if !f.HSTSDisable && relax.IsRequestSSL(ctx.Request) {
 			ctx.Header().Set("Strict-Transport-Security", f.HSTSOptions)
-			ctx.Info.Set("security.sts", true)
 		}
 
 		if !f.CacheDisable {

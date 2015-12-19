@@ -1,4 +1,5 @@
-// Copyright 2014 Codehack.com All rights reserved.
+// Copyright 2014-present Codehack. All rights reserved.
+// For mobile and web development visit http://codehack.com
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
@@ -68,7 +69,7 @@ type Router interface {
 	// return it. If no match is found, it should return an StatusError error which will
 	// be sent to the requester. The default errors ErrRouteNotFound and
 	// ErrRouteBadMethod cover the default cases.
-	FindHandler(*Context) (HandlerFunc, error)
+	FindHandler(string, string, *url.Values) (HandlerFunc, error)
 
 	// AddRoute is used to create new routes to resources. It expects the HTTP method
 	// (GET, POST, ...) followed by the resource path and the handler function.
@@ -80,7 +81,7 @@ type Router interface {
 }
 
 // These are errors returned by the default routing engine. You are encouraged to
-// reuse them with your own routing engine.
+// reuse them with your own Router.
 var (
 	// ErrRouteNotFound is returned when the path searched didn't reach a resource handler.
 	ErrRouteNotFound = &StatusError{http.StatusNotFound, "That route was not found.", nil}
@@ -154,10 +155,12 @@ func segmentExp(pattern string) *regexp.Regexp {
 	p = regexp.MustCompile(`\{(?:date\:)\w+\}`).
 		ReplaceAllStringFunc(p, func(m string) string {
 		name := m[6 : len(m)-1]
-		return fmt.Sprintf(`(?P<%s>(`+
-			`(?P<%s_year>\d{4})([/-]?(?P<%s_mon>(0[1-9])|(1[012]))([/-]?(?P<%s_mday>(0[1-9])|([12]\d)|(3[01])))?)?`+
-			`(?:T(?P<%s_hour>([01][0-9])|(?:2[0123]))(\:?(?P<%s_min>[0-5][0-9])(\:?(?P<%s_sec>[0-5][0-9]([\,\.]\d{1,10})?))?)?(?:Z|([\-+](?:([01][0-9])|(?:2[0123]))(\:?(?:[0-5][0-9]))?))?)?`+
-			`))`, name, name, name, name, name, name, name)
+		return fmt.Sprintf(`(?P<%[1]s>(`+
+			`(?P<%[1]s_year>\d{4})([/-]?`+
+			`(?P<%[1]s_mon>(0[1-9])|(1[012]))([/-]?`+
+			`(?P<%[1]s_mday>(0[1-9])|([12]\d)|(3[01])))?)?`+
+			`(?:T(?P<%[1]s_hour>([01][0-9])|(?:2[0123]))(\:?(?P<%[1]s_min>[0-5][0-9])(\:?(?P<%[1]s_sec>[0-5][0-9]([\,\.]\d{1,10})?))?)?(?:Z|([\-+](?:([01][0-9])|(?:2[0123]))(\:?(?:[0-5][0-9]))?))?)?`+
+			`))`, name)
 	})
 	// geo: geo location in decimal. See http://tools.ietf.org/html/rfc5870
 	// accepted values:
@@ -166,10 +169,13 @@ func segmentExp(pattern string) *regexp.Regexp {
 	// 	lag,lon;u=unc     (circle)
 	// 	lat,lon,alt;u=unc (sphere)
 	// 	lat,lon;crs=name  (point with coordinate reference system (CRS) value)
-	p = regexp.MustCompile(`\{(?:geo\:)\w+\}`).
-		ReplaceAllStringFunc(p, func(m string) string {
+	p = regexp.MustCompile(`\{(?:geo\:)\w+\}`).ReplaceAllStringFunc(p, func(m string) string {
 		name := m[5 : len(m)-1]
-		return fmt.Sprintf(`(?P<%s_lat>\-?\d+(\.\d+)?)[,;](?P<%s_lon>\-?\d+(\.\d+)?)([,;](?P<%s_alt>\-?\d+(\.\d+)?))?(((?:;crs=)(?P<%s_crs>[\w\-]+))?((?:;u=)(?P<%s_u>\-?\d+(\.\d+)?))?)?`, name, name, name, name, name)
+		return fmt.Sprintf(`(?P<%[1]s_lat>\-?\d+(\.\d+)?)[,;]`+
+			`(?P<%[1]s_lon>\-?\d+(\.\d+)?)([,;]`+
+			`(?P<%[1]s_alt>\-?\d+(\.\d+)?))?(((?:;crs=)`+
+			`(?P<%[1]s_crs>[\w\-]+))?((?:;u=)`+
+			`(?P<%[1]s_u>\-?\d+(\.\d+)?))?)?`, name)
 	})
 	// hex: matches a hexadecimal number (assume 32bit)
 	// accepted value: 0xNN
@@ -264,13 +270,15 @@ func (node *trieNode) matchSegment(pseg string, depth int, values *url.Values) *
 
 // FindHandler returns a resource handler that matches the requested route; or
 // an error (StatusError) if none found.
-func (router *trieRegexpRouter) FindHandler(ctx *Context) (HandlerFunc, error) {
-	method := ctx.Request.Method
+// method is the HTTP verb.
+// path is the relative URI path.
+// values is a pointer to an url.Values map to store parameters from the path.
+func (router *trieRegexpRouter) FindHandler(method, path string, values *url.Values) (HandlerFunc, error) {
 	if method == "HEAD" {
 		method = "GET"
 	}
 	node := router.root
-	pseg := strings.Split(method+strings.TrimRight(ctx.Request.URL.Path, "/"), "/")
+	pseg := strings.Split(method+strings.TrimRight(path, "/"), "/") // ex: GET/api/users
 	slen := len(pseg)
 	for i := range make([]struct{}, slen) {
 		if node == nil {
@@ -279,7 +287,7 @@ func (router *trieRegexpRouter) FindHandler(ctx *Context) (HandlerFunc, error) {
 			}
 			return nil, ErrRouteNotFound
 		}
-		node = node.matchSegment(pseg[i], slen, &ctx.PathValues)
+		node = node.matchSegment(pseg[i], slen, values)
 	}
 
 	if node == nil || node.handler == nil {
