@@ -1,4 +1,5 @@
-// Copyright 2014 Codehack.com All rights reserved.
+// Copyright 2014-present Codehack. All rights reserved.
+// For mobile and web development visit http://codehack.com
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
@@ -34,7 +35,7 @@ func TestEncoder(t *testing.T) {
 	reader := bytes.NewReader(xmlstr)
 	object := &Object{}
 
-	encoder := xmlenc.NewEncoderXML()
+	encoder := xmlenc.NewEncoder()
 	encoder.Indented = true
 
 	err := encoder.Decode(reader, object)

@@ -1,4 +1,5 @@
-// Copyright 2014 Codehack.com All rights reserved.
+// Copyright 2014-present Codehack. All rights reserved.
+// For mobile and web development visit http://codehack.com
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
@@ -29,10 +30,10 @@ type EncoderXML struct {
 	ContentTypeHeader string
 }
 
-// NewEncoderXML returns an EncoderXML object. This function will initiallize
+// NewEncoder returns an EncoderXML object. This function will initiallize
 // the object with sane defaults, for use with Service.encoders.
 // Returns the new EncoderXML object.
-func NewEncoderXML() *EncoderXML {
+func NewEncoder() *EncoderXML {
 	return &EncoderXML{
 		MaxBodySize:       4194304, // 4MB
 		Indented:          false,
@@ -72,7 +73,7 @@ func (e *EncoderXML) Encode(writer io.Writer, v interface{}) error {
 // EncoderXML.MaxBodySize, it will fail with error ErrBodyTooLarge
 // Returns nil on success and error on failure.
 func (e *EncoderXML) Decode(reader io.Reader, v interface{}) error {
-	r := &io.LimitedReader{reader, e.MaxBodySize}
+	r := &io.LimitedReader{R: reader, N: e.MaxBodySize}
 	err := xml.NewDecoder(r).Decode(v)
 	if err != nil && r.N == 0 {
 		return relax.ErrBodyTooLarge

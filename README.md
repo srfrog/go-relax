@@ -21,7 +21,7 @@ Also, check the [wiki](https://github.com/codehack/go-relax/wiki) for Howto's an
 ## Features
 
 - Helps build API's that follow the REST concept using ROA principles.
-- Built-in support of HATEOAS constraint with Link header (and soon JSON-LD).
+- Built-in support of HATEOAS constraint with Web Linking header tags.
 - Follows REST "best practices", with inspiration from Heroku and GitHub.
 - Works fine along with ``http.ServeMux`` or independently as ``http.Handler``
 - Supports different media types, and **mixed** for requests and responses.
@@ -41,8 +41,7 @@ Also, check the [wiki](https://github.com/codehack/go-relax/wiki) for Howto's an
 - [x] Method override - GET/POST method override via HTTP header and query string.
 - [x] Security - Various security practices for request handling.
 - [x] Limits - request throttler, token-based rate limiter, and memory limits.
-- [ ] RestCop (Constraints Output Profiler) - it warns you when your responses are not RESTful.
-- [ ] Status - system status.
+- [x] Relaxed - Test API's compliance with [Relax API Specification](https://github.com/codehack/relax-api) (based on REST).
 
 ## Documentation
 
@@ -95,7 +94,7 @@ Content-Length: 14
 
 ## Credits
 
-**Go-Relax** is Copyright (c) 2014 [Codehack](http://codehack.com).
+**Go-Relax** is Copyright (c) 2014-present [Codehack](http://codehack.com).
 Published under [MIT License](https://raw.githubusercontent.com/codehack/go-relax/master/LICENSE)
 
 

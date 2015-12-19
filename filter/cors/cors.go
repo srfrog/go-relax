@@ -1,10 +1,12 @@
-// Copyright 2014 Codehack.com All rights reserved.
+// Copyright 2014-present Codehack. All rights reserved.
+// For mobile and web development visit http://codehack.com
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-package relax
+package cors
 
 import (
+	"github.com/codehack/go-relax"
 	"github.com/codehack/go-strarr"
 	"net/http"
 	"net/url"
@@ -33,9 +35,9 @@ var (
 	allowOriginRegexp = []*regexp.Regexp{}
 )
 
-// FilterCORS implements the Cross-Origin Resource Sharing (CORS) recommendation, as
+// Filter CORS implements the Cross-Origin Resource Sharing (CORS) recommendation, as
 // described in http://www.w3.org/TR/cors/ (W3C).
-type FilterCORS struct {
+type Filter struct {
 	// AllowOrigin is the list of URI patterns that are allowed to use the resource.
 	// The patterns consist of text with zero or more wildcards '*' '?' '+'.
 	//
@@ -102,7 +104,7 @@ type FilterCORS struct {
 	Strict bool
 }
 
-func (f *FilterCORS) corsHeaders(origin string) http.Header {
+func (f *Filter) corsHeaders(origin string) http.Header {
 	headers := make(http.Header, 0)
 	switch {
 	case f.AllowCredentials:
@@ -124,14 +126,14 @@ func (f *FilterCORS) corsHeaders(origin string) http.Header {
 
 // XXX: handlePreflightRequest does not do preflight steps 9 & 10 checks because they are too strict.
 // XXX: It will skip steps 9 & 10, as per the recommendation.
-func (f *FilterCORS) handlePreflightRequest(origin, rmethod, rheaders string) (http.Header, error) {
+func (f *Filter) handlePreflightRequest(origin, rmethod, rheaders string) (http.Header, error) {
 	if !strarr.Contains(simpleMethods, rmethod) && !strarr.Contains(f.AllowMethods, rmethod) {
-		return nil, &StatusError{http.StatusMethodNotAllowed, "Invalid method in preflight", nil}
+		return nil, &relax.StatusError{http.StatusMethodNotAllowed, "Invalid method in preflight", nil}
 	}
 	if rheaders != "" {
 		arr := strarr.Map(strings.TrimSpace, strings.Split(rheaders, ","))
 		if len(strarr.Diff(arr, f.AllowHeaders)) == 0 {
-			return nil, &StatusError{http.StatusForbidden, "Invalid header in preflight", nil}
+			return nil, &relax.StatusError{http.StatusForbidden, "Invalid header in preflight", nil}
 		}
 	}
 
@@ -150,7 +152,7 @@ func (f *FilterCORS) handlePreflightRequest(origin, rmethod, rheaders string) (h
 	return headers, nil
 }
 
-func (f *FilterCORS) handleSimpleRequest(origin string) http.Header {
+func (f *Filter) handleSimpleRequest(origin string) http.Header {
 	headers := f.corsHeaders(origin)
 	if len(f.ExposeHeaders) > 0 {
 		headers.Set("Access-Control-Expose-Headers", strings.Join(f.ExposeHeaders, ", "))
@@ -158,7 +160,7 @@ func (f *FilterCORS) handleSimpleRequest(origin string) http.Header {
 	return headers
 }
 
-func (f *FilterCORS) isOriginAllowed(origin string) bool {
+func (f *Filter) isOriginAllowed(origin string) bool {
 	for _, re := range allowOriginRegexp {
 		if re.MatchString(origin) {
 			return true
@@ -168,9 +170,11 @@ func (f *FilterCORS) isOriginAllowed(origin string) bool {
 }
 
 // Run runs the filter and passes down the following Info:
-//		ctx.Info.Get("cors.request") // boolean, whether or not this was a CORS request.
-//		ctx.Info.Get("cors.origin")  // Origin of the request, if it's a CORS request.
-func (f *FilterCORS) Run(next HandlerFunc) HandlerFunc {
+//
+//		ctx.Get("cors.request") // boolean, whether or not this was a CORS request.
+//		ctx.Get("cors.origin")  // Origin of the request, if it's a CORS request.
+//
+func (f *Filter) Run(next relax.HandlerFunc) relax.HandlerFunc {
 	if f.AllowMethods == nil {
 		f.AllowMethods = allowMethodsDefault
 	}
@@ -197,10 +201,10 @@ func (f *FilterCORS) Run(next HandlerFunc) HandlerFunc {
 		allowOriginRegexp = append(allowOriginRegexp, regexp.MustCompile(str))
 	}
 
-	return func(ctx *Context) {
+	return func(ctx *relax.Context) {
 		origin := ctx.Request.Header.Get("Origin")
 
-		ctx.Info.Set("cors.request", false)
+		// ctx.Set("cors.request", false)
 
 		// This is not a CORS request, carry on.
 		if origin == "" {
@@ -238,10 +242,10 @@ func (f *FilterCORS) Run(next HandlerFunc) HandlerFunc {
 		if ctx.Request.Method == "OPTIONS" && method != "" {
 			headers, err := f.handlePreflightRequest(origin, method, ctx.Request.Header.Get("Access-Control-Request-Headers"))
 			if err != nil {
-				if (err.(*StatusError)).Code == http.StatusMethodNotAllowed {
+				if (err.(*relax.StatusError)).Code == http.StatusMethodNotAllowed {
 					ctx.Header().Set("Allow", strings.Join(f.AllowMethods, ", "))
 				}
-				ctx.Error(err.(*StatusError).Code, err.Error())
+				ctx.Error(err.(*relax.StatusError).Code, err.Error())
 				return
 			}
 			for k, v := range headers {
@@ -258,8 +262,8 @@ func (f *FilterCORS) Run(next HandlerFunc) HandlerFunc {
 		}
 
 		// let other downstream filters know that this is a CORS request
-		ctx.Info.Set("cors.request", true)
-		ctx.Info.Set("cors.origin", origin)
+		ctx.Set("cors.request", true)
+		ctx.Set("cors.origin", origin)
 
 		next(ctx)
 	}
