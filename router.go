@@ -39,6 +39,8 @@ for a value and varname is the name to give the variable that matches the value.
 
 	"{hex:varname}" // matches a hex number, with optional "0x" prefix.
 
+	"{uuid:varname}" // matches an UUID.
+
 	"{varname}" // catch-all; matches anything. it may overlap other matches.
 
 	"*" // translated into "{wild}"
@@ -177,26 +179,36 @@ func segmentExp(pattern string) *regexp.Regexp {
 			`(?P<%[1]s_crs>[\w\-]+))?((?:;u=)`+
 			`(?P<%[1]s_u>\-?\d+(\.\d+)?))?)?`, name)
 	})
-	// hex: matches a hexadecimal number (assume 32bit)
+	// hex: matches a hexadecimal number.
 	// accepted value: 0xNN
 	p = regexp.MustCompile(`\{(?:hex\:)\w+\}`).
 		ReplaceAllStringFunc(p, func(m string) string {
 		return fmt.Sprintf(`(?P<%s>(?:0x)?[[:xdigit:]]+)`, m[5:len(m)-1])
+	})
+	// uuid: matches an UUID using hex octets, with optional dashes.
+	// accepted value: NNNNNNNN-NNNN-NNNN-NNNN-NNNNNNNNNNNN
+	p = regexp.MustCompile(`\{(?:uuid\:)\w+\}`).
+		ReplaceAllStringFunc(p, func(m string) string {
+		return fmt.Sprintf(`(?P<%s>[[:xdigit:]]{8}\-?`+
+			`[[:xdigit:]]{4}\-?`+
+			`[[:xdigit:]]{4}\-?`+
+			`[[:xdigit:]]{4}\-?`+
+			`[[:xdigit:]]{12})`, m[6:len(m)-1])
 	})
 	// float: matches a floating-point number
 	p = regexp.MustCompile(`\{(?:float\:)\w+\}`).
 		ReplaceAllStringFunc(p, func(m string) string {
 		return fmt.Sprintf(`(?P<%s>[\-+]?\d+\.\d+)`, m[7:len(m)-1])
 	})
-	// uint: matches an unsigned integer number (assume 32bit)
+	// uint: matches an unsigned integer number (64bit)
 	p = regexp.MustCompile(`\{(?:uint\:)\w+\}`).
 		ReplaceAllStringFunc(p, func(m string) string {
-		return fmt.Sprintf(`(?P<%s>\d{1,10})`, m[6:len(m)-1])
+		return fmt.Sprintf(`(?P<%s>\d{1,18})`, m[6:len(m)-1])
 	})
-	// int: matches a signed integer number (assume 32bit)
+	// int: matches a signed integer number (64bit)
 	p = regexp.MustCompile(`\{(?:int\:)\w+\}`).
 		ReplaceAllStringFunc(p, func(m string) string {
-		return fmt.Sprintf(`(?P<%s>[-+]?\d{1,10})`, m[5:len(m)-1])
+		return fmt.Sprintf(`(?P<%s>[-+]?\d{1,18})`, m[5:len(m)-1])
 	})
 	return regexp.MustCompile(p)
 }
