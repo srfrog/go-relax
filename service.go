@@ -6,12 +6,13 @@
 package relax
 
 import (
-	"golang.org/x/net/context"
 	"log"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"golang.org/x/net/context"
 )
 
 // serverVersion is used with the Server HTTP header.

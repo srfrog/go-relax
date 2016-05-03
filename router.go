@@ -135,13 +135,13 @@ func segmentExp(pattern string) *regexp.Regexp {
 	// any: catch-all pattern
 	p := regexp.MustCompile(`\{\w+\}`).
 		ReplaceAllStringFunc(pattern, func(m string) string {
-		return fmt.Sprintf(`(?P<%s>.+)`, m[1:len(m)-1])
-	})
+			return fmt.Sprintf(`(?P<%s>.+)`, m[1:len(m)-1])
+		})
 	// word: matches an alphanumeric word, with underscores.
 	p = regexp.MustCompile(`\{(?:word\:)\w+\}`).
 		ReplaceAllStringFunc(p, func(m string) string {
-		return fmt.Sprintf(`(?P<%s>\w+)`, m[6:len(m)-1])
-	})
+			return fmt.Sprintf(`(?P<%s>\w+)`, m[6:len(m)-1])
+		})
 	// date: matches a date as described in ISO 8601. see: https://en.wikipedia.org/wiki/ISO_8601
 	// accepted values:
 	// 	YYYY
@@ -156,14 +156,14 @@ func segmentExp(pattern string) *regexp.Regexp {
 	//
 	p = regexp.MustCompile(`\{(?:date\:)\w+\}`).
 		ReplaceAllStringFunc(p, func(m string) string {
-		name := m[6 : len(m)-1]
-		return fmt.Sprintf(`(?P<%[1]s>(`+
-			`(?P<%[1]s_year>\d{4})([/-]?`+
-			`(?P<%[1]s_mon>(0[1-9])|(1[012]))([/-]?`+
-			`(?P<%[1]s_mday>(0[1-9])|([12]\d)|(3[01])))?)?`+
-			`(?:T(?P<%[1]s_hour>([01][0-9])|(?:2[0123]))(\:?(?P<%[1]s_min>[0-5][0-9])(\:?(?P<%[1]s_sec>[0-5][0-9]([\,\.]\d{1,10})?))?)?(?:Z|([\-+](?:([01][0-9])|(?:2[0123]))(\:?(?:[0-5][0-9]))?))?)?`+
-			`))`, name)
-	})
+			name := m[6 : len(m)-1]
+			return fmt.Sprintf(`(?P<%[1]s>(`+
+				`(?P<%[1]s_year>\d{4})([/-]?`+
+				`(?P<%[1]s_mon>(0[1-9])|(1[012]))([/-]?`+
+				`(?P<%[1]s_mday>(0[1-9])|([12]\d)|(3[01])))?)?`+
+				`(?:T(?P<%[1]s_hour>([01][0-9])|(?:2[0123]))(\:?(?P<%[1]s_min>[0-5][0-9])(\:?(?P<%[1]s_sec>[0-5][0-9]([\,\.]\d{1,10})?))?)?(?:Z|([\-+](?:([01][0-9])|(?:2[0123]))(\:?(?:[0-5][0-9]))?))?)?`+
+				`))`, name)
+		})
 	// geo: geo location in decimal. See http://tools.ietf.org/html/rfc5870
 	// accepted values:
 	// 	lat,lon           (point)
@@ -183,33 +183,33 @@ func segmentExp(pattern string) *regexp.Regexp {
 	// accepted value: 0xNN
 	p = regexp.MustCompile(`\{(?:hex\:)\w+\}`).
 		ReplaceAllStringFunc(p, func(m string) string {
-		return fmt.Sprintf(`(?P<%s>(?:0x)?[[:xdigit:]]+)`, m[5:len(m)-1])
-	})
+			return fmt.Sprintf(`(?P<%s>(?:0x)?[[:xdigit:]]+)`, m[5:len(m)-1])
+		})
 	// uuid: matches an UUID using hex octets, with optional dashes.
 	// accepted value: NNNNNNNN-NNNN-NNNN-NNNN-NNNNNNNNNNNN
 	p = regexp.MustCompile(`\{(?:uuid\:)\w+\}`).
 		ReplaceAllStringFunc(p, func(m string) string {
-		return fmt.Sprintf(`(?P<%s>[[:xdigit:]]{8}\-?`+
-			`[[:xdigit:]]{4}\-?`+
-			`[[:xdigit:]]{4}\-?`+
-			`[[:xdigit:]]{4}\-?`+
-			`[[:xdigit:]]{12})`, m[6:len(m)-1])
-	})
+			return fmt.Sprintf(`(?P<%s>[[:xdigit:]]{8}\-?`+
+				`[[:xdigit:]]{4}\-?`+
+				`[[:xdigit:]]{4}\-?`+
+				`[[:xdigit:]]{4}\-?`+
+				`[[:xdigit:]]{12})`, m[6:len(m)-1])
+		})
 	// float: matches a floating-point number
 	p = regexp.MustCompile(`\{(?:float\:)\w+\}`).
 		ReplaceAllStringFunc(p, func(m string) string {
-		return fmt.Sprintf(`(?P<%s>[\-+]?\d+\.\d+)`, m[7:len(m)-1])
-	})
+			return fmt.Sprintf(`(?P<%s>[\-+]?\d+\.\d+)`, m[7:len(m)-1])
+		})
 	// uint: matches an unsigned integer number (64bit)
 	p = regexp.MustCompile(`\{(?:uint\:)\w+\}`).
 		ReplaceAllStringFunc(p, func(m string) string {
-		return fmt.Sprintf(`(?P<%s>\d{1,18})`, m[6:len(m)-1])
-	})
+			return fmt.Sprintf(`(?P<%s>\d{1,18})`, m[6:len(m)-1])
+		})
 	// int: matches a signed integer number (64bit)
 	p = regexp.MustCompile(`\{(?:int\:)\w+\}`).
 		ReplaceAllStringFunc(p, func(m string) string {
-		return fmt.Sprintf(`(?P<%s>[-+]?\d{1,18})`, m[5:len(m)-1])
-	})
+			return fmt.Sprintf(`(?P<%s>[-+]?\d{1,18})`, m[5:len(m)-1])
+		})
 	return regexp.MustCompile(p)
 }
 

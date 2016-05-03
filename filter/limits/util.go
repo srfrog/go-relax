@@ -21,12 +21,8 @@ func Min(a, b int) int {
 }
 
 // MD5RequestKey returns a key made from MD5 hash of Request.RemoteAddr and
-// Request.UserAgent. But if the client has been authenticated, it will
-// use the username as key.
+// Request.UserAgent.
 func MD5RequestKey(c relax.Context) string {
-	if c.Info.Contains("auth.user") {
-		return "quota:" + c.Info.Get("auth.user")
-	}
 	h := md5.New()
 	host, _ := SplitPort(c.Request.RemoteAddr)
 	h.Write([]byte(host))
