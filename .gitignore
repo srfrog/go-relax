@@ -1,3 +1,5 @@
 *~
 _*
 filter/relaxed
+vendor/*
+!vendor/vendor.json

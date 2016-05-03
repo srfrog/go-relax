@@ -7,7 +7,6 @@ package relax
 
 import (
 	"fmt"
-	"golang.org/x/net/context"
 	"io"
 	"net/http"
 	"net/url"
@@ -15,6 +14,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/net/context"
 )
 
 // HandlerFunc is simply a version of http.HandlerFunc that uses Context.

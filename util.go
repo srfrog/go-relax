@@ -6,10 +6,11 @@
 package relax
 
 import (
-	"github.com/pborman/uuid"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/satori/go.uuid"
 )
 
 // These status codes are inaccessible in net/http but they work with http.StatusText().
@@ -41,7 +42,7 @@ const (
 // A valid ID must be between 20 and 200 chars in length, and URL-encoded.
 func NewRequestID(id string) string {
 	if id == "" {
-		return uuid.New()
+		return uuid.NewV4().String()
 	}
 	l := 0
 	for i, c := range id {
@@ -53,12 +54,12 @@ func NewRequestID(id string) string {
 		case i > 199:
 			fallthrough
 		default:
-			return uuid.New()
+			return uuid.NewV4().String()
 		}
 		l = i
 	}
 	if l < 20 {
-		return uuid.New()
+		return uuid.NewV4().String()
 	}
 	return id
 }

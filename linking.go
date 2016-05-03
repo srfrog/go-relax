@@ -116,6 +116,5 @@ func (r *Resource) NewLink(link *Link) {
 			return
 		}
 	}
-	fmt.Println("NewLink:", link)
 	r.links = append(r.links, link)
 }

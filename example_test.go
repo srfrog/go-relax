@@ -6,6 +6,11 @@
 package relax_test
 
 import (
+	"log"
+	"net/http"
+	"strconv"
+	"time"
+
 	"github.com/codehack/go-relax"
 	"github.com/codehack/go-relax/filter/authbasic"
 	"github.com/codehack/go-relax/filter/cors"
@@ -14,10 +19,6 @@ import (
 	"github.com/codehack/go-relax/filter/logs"
 	"github.com/codehack/go-relax/filter/override"
 	"github.com/codehack/go-relax/filter/security"
-	"log"
-	"net/http"
-	"strconv"
-	"time"
 )
 
 // User could be a struct mapping a DB table.
