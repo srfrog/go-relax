@@ -7,6 +7,7 @@ package relax
 
 // StatusError is an error with a HTTP Status code. It allows errors to be
 // complete and uniform.
+// swagger:model RelaxError
 type StatusError struct {
 	// Code is meant for a HTTP status code or any other numeric ID.
 	Code int `json:"code"`
