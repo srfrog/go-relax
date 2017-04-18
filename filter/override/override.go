@@ -22,7 +22,7 @@ type Filter struct {
 	// Default: "_method"
 	QueryVar string
 
-	// Methods specifies the methods can be overriden.
+	// Methods specifies the methods can be overridden.
 	// Format is Methods["method"] = "override".
 	// Default methods:
 	//		f.Methods = map[string]string{

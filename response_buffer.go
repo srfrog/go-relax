@@ -89,9 +89,9 @@ func (rb *ResponseBuffer) Flush(w http.ResponseWriter) (int64, error) {
 	return rb.WriteTo(w)
 }
 
-// reponseBufferPool allows us to reuse some ResponseBuffer objects to
+// responseBufferPool allows us to reuse some ResponseBuffer objects to
 // conserve system resources.
-var reponseBufferPool = sync.Pool{
+var responseBufferPool = sync.Pool{
 	New: func() interface{} { return new(ResponseBuffer) },
 }
 
@@ -100,7 +100,7 @@ var reponseBufferPool = sync.Pool{
 // Objects returned using this function are pooled to save resources.
 // See also: ResponseBuffer.Free
 func NewResponseBuffer(w http.ResponseWriter) *ResponseBuffer {
-	rb := reponseBufferPool.Get().(*ResponseBuffer)
+	rb := responseBufferPool.Get().(*ResponseBuffer)
 	rb.header = make(http.Header, 0)
 	for k, v := range w.Header() {
 		rb.header[k] = v
@@ -117,5 +117,5 @@ func (rb *ResponseBuffer) Free() {
 	rb.wroteHeader = false
 	rb.status = 0
 	rb.header = nil
-	reponseBufferPool.Put(rb)
+	responseBufferPool.Put(rb)
 }

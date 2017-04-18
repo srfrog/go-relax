@@ -23,7 +23,7 @@ const (
 // adjust their configuration.
 // See https://www.owasp.org/index.php/List_of_useful_HTTP_headers
 type Filter struct {
-	// UACheckDisable if false, a check is done to see if the client sent a valid non-emtpy
+	// UACheckDisable if false, a check is done to see if the client sent a valid non-empty
 	// User-Agent header with the request.
 	// Defaults to false.
 	UACheckDisable bool

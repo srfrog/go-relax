@@ -189,7 +189,7 @@ func (ctx *Context) Respond(v interface{}, code ...int) error {
 }
 
 /*
-Error sends an error response, with appropiate encoding. It basically calls
+Error sends an error response, with appropriate encoding. It basically calls
 Respond using a status code and wrapping the message in a StatusError object.
 
 'code' is the HTTP status code of the error. 'message' is the actual error message
@@ -221,7 +221,7 @@ its values. See: https://httpd.apache.org/docs/2.4/mod/mod_log_config.html#forma
 
 	%%  	Percent sign
 	%a  	Client remote address
-	%b  	Size of reponse in bytes, excluding headers. Or '-' if zero.
+	%b  	Size of response in bytes, excluding headers. Or '-' if zero.
 	%#a 	Proxy client address, or unknown.
 	%h  	Remote hostname. Will perform lookup.
 	%l  	Remote ident, will write '-' (only for Apache log support).
@@ -235,7 +235,7 @@ its values. See: https://httpd.apache.org/docs/2.4/mod/mod_log_config.html#forma
 	%u  	Remote user, if any.
 	%v  	Request host name.
 	%A  	User agent.
-	%B  	Size of reponse in bytes, excluding headers.
+	%B  	Size of response in bytes, excluding headers.
 	%D  	Time lapsed to serve request, in seconds.
 	%H  	Request protocol.
 	%I  	Bytes received.

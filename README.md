@@ -1,4 +1,4 @@
-# Go-Relax [![GoDoc](https://godoc.org/github.com/codehack/go-relax?status.svg)](https://godoc.org/github.com/codehack/go-relax) ![Project progress](http://progressed.io/bar/45 "Progress") [![ghit.me](https://ghit.me/badge.svg?repo=codehack/go-relax)](https://ghit.me/repo/codehack/go-relax)
+# Go-Relax [![GoDoc](https://godoc.org/github.com/codehack/go-relax?status.svg)](https://godoc.org/github.com/codehack/go-relax) ![Project progress](http://progressed.io/bar/45 "Progress") [![ghit.me](https://ghit.me/badge.svg?repo=codehack/go-relax)](https://ghit.me/repo/codehack/go-relax) [![Go Report Card](https://goreportcard.com/badge/github.com/codehack/go-relax)](https://goreportcard.com/report/github.com/codehack/go-relax)
 
 *Build fast and complete RESTful APIs in [Go](http://golang.org)*
 
