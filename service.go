@@ -100,7 +100,7 @@ func InternalServerError(w http.ResponseWriter, r *http.Request) {
 }
 
 // dispatch tries to connect the request to a resource handler. If it can't find
-// an appropiate handler it will return an HTTP error response.
+// an appropriate handler it will return an HTTP error response.
 func (svc *Service) dispatch(ctx *Context) {
 	handler, err := svc.router.FindHandler(ctx.Request.Method, ctx.Request.URL.Path, &ctx.PathValues)
 	if err != nil {

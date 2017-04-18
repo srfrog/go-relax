@@ -71,7 +71,7 @@ var Content struct {
 	// Version is the version used when no content version is requested.
 	// Default: current
 	Version string
-	// Language is the langauge used when no content language is requested.
+	// Language is the language used when no content language is requested.
 	// Default: en-US
 	Language string
 }
