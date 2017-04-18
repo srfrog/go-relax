@@ -15,7 +15,7 @@ import (
 )
 
 // Filter ETag generates an entity-tag header "ETag" for body content of a response.
-// It will use pre-generated etags from the underlying filters or handlers, if availble.
+// It will use pre-generated etags from the underlying filters or handlers, if available.
 // Optionally, it will also handle the conditional response based on If-Match
 // and If-None-Match checks on specific entity-tag values.
 // This implementation follows the recommendation in http://tools.ietf.org/html/rfc7232
