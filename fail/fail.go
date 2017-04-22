@@ -209,7 +209,6 @@ func Say(err error) (int, string) {
 	case nil:
 		return http.StatusOK, "OK"
 	case *Fail:
-		fmt.Printf("%s:%d: %s\n", e.file, e.line, e)
 		return e.Status, e.Message
 	}
 
