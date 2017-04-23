@@ -1,5 +1,7 @@
 # Go-Relax [![GoDoc](https://godoc.org/github.com/codehack/go-relax?status.svg)](https://godoc.org/github.com/codehack/go-relax) ![Project progress](http://progressed.io/bar/45 "Progress") [![ghit.me](https://ghit.me/badge.svg?repo=codehack/go-relax)](https://ghit.me/repo/codehack/go-relax) [![Go Report Card](https://goreportcard.com/badge/github.com/codehack/go-relax)](https://goreportcard.com/report/github.com/codehack/go-relax)
 
+*NOTE: This framework is going through some well-deserved refactoring, thanks for the "is this project alive?" emails. Also, moved `fail` package to it's own repo - https://github.com/codehack/fail *
+
 *Build fast and complete RESTful APIs in [Go](http://golang.org)*
 
 *Go-Relax* aims to provide the tools to help developers build RESTful web services, and information needed to abide by [REST](https://en.wikipedia.org/wiki/REST) architectural constraints using correct [HTTP semantics](http://tools.ietf.org/html/rfc7231).
@@ -41,7 +43,13 @@ Also, check the [wiki](https://github.com/codehack/go-relax/wiki) for Howto's an
 - [x] Method override - GET/POST method override via HTTP header and query string.
 - [x] Security - Various security practices for request handling.
 - [x] Limits - request throttler, token-based rate limiter, and memory limits.
-- [x] Relaxed - Test API's compliance with [Relax API Specification](https://github.com/codehack/relax-api) (based on REST).
+
+#### Upcoming filters
+
+- [ ] Relaxed - Test API's compliance with [Relax API Specification](https://github.com/codehack/relax-api) (based on REST).
+- [ ] JSON-API support.
+- [ ] JSON-Schema for validating requests and responses.
+- [ ] Collection-JSON support.
 
 ## Documentation
 
