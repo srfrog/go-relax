@@ -116,10 +116,20 @@ type trieRegexpRouter struct {
 //        - suppose "111" might be matched via regexp, then "users".numExp > 0
 //        - "111" segment will point to the handler users.GetUser()
 type trieNode struct {
+	pseg    string
 	handler HandlerFunc
 	numExp  int
 	depth   int
-	links   map[string]*trieNode
+	links   []*trieNode
+}
+
+func (n *trieNode) findLink(pseg string) *trieNode {
+	for i := range n.links {
+		if n.links[i].pseg == pseg {
+			return n.links[i]
+		}
+	}
+	return nil
 }
 
 // segmentExp compiles the pattern string into a regexp so it can used in a
@@ -226,13 +236,15 @@ func (router *trieRegexpRouter) AddRoute(method, path string, handler HandlerFun
 			}
 			node.numExp++
 		}
-		if node.links[pseg[i]] == nil {
-			if node.links == nil {
-				node.links = make(map[string]*trieNode, 0)
+		link := node.findLink(pseg[i])
+		if link == nil {
+			link = &trieNode{
+				pseg:  pseg[i],
+				depth: node.depth + 1,
 			}
-			node.links[pseg[i]] = &trieNode{depth: node.depth + 1}
+			node.links = append(node.links, link)
 		}
-		node = node.links[pseg[i]]
+		node = link
 	}
 
 	node.handler = handler
@@ -248,10 +260,10 @@ func (router *trieRegexpRouter) AddRoute(method, path string, handler HandlerFun
 // Request.PathValues.
 func (node *trieNode) matchSegment(pseg string, depth int, values *url.Values) *trieNode {
 	if node.numExp == 0 {
-		return node.links[pseg]
+		return node.findLink(pseg)
 	}
 	for pexp := range node.links {
-		rx := pathRegexpCache[pexp]
+		rx := pathRegexpCache[node.links[pexp].pseg]
 		if rx == nil {
 			continue
 		}
@@ -277,7 +289,7 @@ func (node *trieNode) matchSegment(pseg string, depth int, values *url.Values) *
 			return node.links[pexp]
 		}
 	}
-	return node.links[pseg]
+	return node.findLink(pseg)
 }
 
 // FindHandler returns a resource handler that matches the requested route; or
