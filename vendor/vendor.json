@@ -37,12 +37,6 @@
 			"path": "github.com/satori/go.uuid",
 			"revision": "f9ab0dce87d815821e221626b772e3475a0d2749",
 			"revisionTime": "2016-03-24T11:22:44Z"
-		},
-		{
-			"checksumSHA1": "9jjO5GjLa0XF/nfWihF02RoH4qc=",
-			"path": "golang.org/x/net/context",
-			"revision": "35ec611a141ee705590b9eb64d673f9e6dfeb1ac",
-			"revisionTime": "2016-04-28T06:05:50Z"
 		}
 	],
 	"rootPath": "github.com/codehack/go-relax"
