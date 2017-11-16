@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/net/context"
+	"context"
 )
 
 // HandlerFunc is simply a version of http.HandlerFunc that uses Context.
