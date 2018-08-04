@@ -1,5 +1,4 @@
-// Copyright 2014-present Codehack. All rights reserved.
-// For mobile and web development visit http://codehack.com
+// Copyright 2014 Codehack http://codehack.com
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
@@ -7,8 +6,9 @@ package xmlenc
 
 import (
 	"encoding/xml"
-	"github.com/codehack/go-relax"
 	"io"
+
+	"github.com/codehack/go-relax"
 )
 
 // EncoderXML implements the relax.Encoder interface. It encode/decodes XML.

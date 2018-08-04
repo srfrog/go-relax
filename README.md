@@ -1,6 +1,4 @@
-# Go-Relax [![GoDoc](https://godoc.org/github.com/codehack/go-relax?status.svg)](https://godoc.org/github.com/codehack/go-relax) ![Project progress](http://progressed.io/bar/45 "Progress") [![ghit.me](https://ghit.me/badge.svg?repo=codehack/go-relax)](https://ghit.me/repo/codehack/go-relax) [![Go Report Card](https://goreportcard.com/badge/github.com/codehack/go-relax)](https://goreportcard.com/report/github.com/codehack/go-relax)
-
-*NOTE: This framework is going through some well-deserved refactoring, thanks for the "is this project alive?" emails. Also, moved `fail` package to it's own repo - https://github.com/codehack/fail *
+# Go-Relax [![GoDoc](https://godoc.org/github.com/codehack/go-relax?status.svg)](https://godoc.org/github.com/codehack/go-relax) [![Go Report Card](https://goreportcard.com/badge/github.com/codehack/go-relax)](https://goreportcard.com/report/github.com/codehack/go-relax)
 
 *Build fast and complete RESTful APIs in [Go](http://golang.org)*
 
@@ -18,7 +16,7 @@ Then import from your source:
 
 View [example_test.go](https://github.com/codehack/go-relax/blob/master/example_test.go) for an extended example of basic usage and features.
 
-Also, check the [wiki](https://github.com/codehack/go-relax/wiki) for Howto's and recipes.
+Also, check the [wiki](https://github.com/codehack/go-relax/wiki) for HowTo's and recipes.
 
 ## Features
 
@@ -102,8 +100,5 @@ Content-Length: 14
 
 ## Credits
 
-**Go-Relax** is Copyright (c) 2014-present [Codehack](http://codehack.com).
-Published under [MIT License](https://raw.githubusercontent.com/codehack/go-relax/master/LICENSE)
-
-
-
+**Go-Relax** is Copyright (c) [Codehack](http://codehack.com).
+Published under an [MIT License](https://raw.githubusercontent.com/codehack/go-relax/master/LICENSE)

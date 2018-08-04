@@ -1,5 +1,4 @@
-// Copyright 2014-present Codehack. All rights reserved.
-// For mobile and web development visit http://codehack.com
+// Copyright 2014 Codehack http://codehack.com
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
@@ -93,7 +92,7 @@ var (
 )
 
 // pathRegexpCache is a cache of all compiled regexp's so they can be reused.
-var pathRegexpCache = make(map[string]*regexp.Regexp, 0)
+var pathRegexpCache = make(map[string]*regexp.Regexp)
 
 // trieRegexpRouter implements Router with a trie that can store regular expressions.
 // root points to the top of the tree from which all routes are searched and matched.
@@ -226,8 +225,8 @@ func segmentExp(pattern string) *regexp.Regexp {
 // AddRoute breaks a path into segments and inserts them in the tree. If a
 // segment contains matching {}'s then it is tried as a regexp segment, otherwise it is
 // treated as a regular string segment.
-func (router *trieRegexpRouter) AddRoute(method, path string, handler HandlerFunc) {
-	node := router.root
+func (r *trieRegexpRouter) AddRoute(method, path string, handler HandlerFunc) {
+	node := r.root
 	pseg := strings.Split(method+strings.TrimRight(path, "/"), "/")
 	for i := range pseg {
 		if (strings.Contains(pseg[i], "{") && strings.Contains(pseg[i], "}")) || strings.Contains(pseg[i], "*") {
@@ -250,25 +249,25 @@ func (router *trieRegexpRouter) AddRoute(method, path string, handler HandlerFun
 	node.handler = handler
 
 	// update methods list
-	if !strings.Contains(strings.Join(router.methods, ","), method) {
-		router.methods = append(router.methods, method)
+	if !strings.Contains(strings.Join(r.methods, ","), method) {
+		r.methods = append(r.methods, method)
 	}
 }
 
 // matchSegment tries to match a path segment 'pseg' to the node's regexp links.
 // This function will return any path values matched so they can be used in
 // Request.PathValues.
-func (node *trieNode) matchSegment(pseg string, depth int, values *url.Values) *trieNode {
-	if node.numExp == 0 {
-		return node.findLink(pseg)
+func (n *trieNode) matchSegment(pseg string, depth int, values *url.Values) *trieNode {
+	if n.numExp == 0 {
+		return n.findLink(pseg)
 	}
-	for pexp := range node.links {
-		rx := pathRegexpCache[node.links[pexp].pseg]
+	for pexp := range n.links {
+		rx := pathRegexpCache[n.links[pexp].pseg]
 		if rx == nil {
 			continue
 		}
 		// this prevents the matching to be side-tracked by smaller paths.
-		if depth > node.links[pexp].depth && node.links[pexp].links == nil {
+		if depth > n.links[pexp].depth && n.links[pexp].links == nil {
 			continue
 		}
 		m := rx.FindStringSubmatch(pseg)
@@ -286,10 +285,10 @@ func (node *trieNode) matchSegment(pseg string, depth int, values *url.Values) *
 					}
 				}
 			}
-			return node.links[pexp]
+			return n.links[pexp]
 		}
 	}
-	return node.findLink(pseg)
+	return n.findLink(pseg)
 }
 
 // FindHandler returns a resource handler that matches the requested route; or
@@ -297,11 +296,11 @@ func (node *trieNode) matchSegment(pseg string, depth int, values *url.Values) *
 // method is the HTTP verb.
 // path is the relative URI path.
 // values is a pointer to an url.Values map to store parameters from the path.
-func (router *trieRegexpRouter) FindHandler(method, path string, values *url.Values) (HandlerFunc, error) {
+func (r *trieRegexpRouter) FindHandler(method, path string, values *url.Values) (HandlerFunc, error) {
 	if method == "HEAD" {
 		method = "GET"
 	}
-	node := router.root
+	node := r.root
 	pseg := strings.Split(method+strings.TrimRight(path, "/"), "/") // ex: GET/api/users
 	slen := len(pseg)
 	for i := range make([]struct{}, slen) {
@@ -323,13 +322,13 @@ func (router *trieRegexpRouter) FindHandler(method, path string, values *url.Val
 // PathMethods returns a string with comma-separated HTTP methods that match
 // the path. This list is suitable for Allow header response. Note that this
 // function only lists the methods, not if they are allowed.
-func (router *trieRegexpRouter) PathMethods(path string) string {
+func (r *trieRegexpRouter) PathMethods(path string) string {
 	var node *trieNode
 	methods := "HEAD" // cheat
 	pseg := strings.Split("*"+strings.TrimRight(path, "/"), "/")
 	slen := len(pseg)
-	for _, method := range router.methods {
-		node = router.root
+	for _, method := range r.methods {
+		node = r.root
 		pseg[0] = method
 		for i := range pseg {
 			if node == nil {

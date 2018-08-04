@@ -1,16 +1,16 @@
-// Copyright 2014-present Codehack. All rights reserved. 
-// For mobile and web development visit http://codehack.com
+// Copyright 2014 Codehack http://codehack.com
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
 package limits
 
 import (
-	"github.com/codehack/go-relax"
 	"net/http"
 	"runtime"
 	"strconv"
 	"time"
+
+	"github.com/codehack/go-relax"
 )
 
 // Global memstats, shared by all Filter objects.
@@ -60,7 +60,7 @@ func (f *Memory) Run(next relax.HandlerFunc) relax.HandlerFunc {
 
 // updateMemStats will update our MemStats values every minute.
 func updateMemStats() {
-	for _ = range time.Tick(time.Minute) {
+	for range time.Tick(time.Minute) {
 		runtime.MemProfileRate = 0
 		runtime.ReadMemStats(&c0)
 	}

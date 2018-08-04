@@ -1,5 +1,4 @@
-// Copyright 2014-present Codehack. All rights reserved.
-// For mobile and web development visit http://codehack.com
+// Copyright 2014 Codehack http://codehack.com
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
@@ -40,7 +39,7 @@ type Users struct {
 func (u *Users) FindByID(idstr string) (*User, error) {
 	id, err := strconv.Atoi(idstr)
 	if err != nil {
-		return nil, &relax.StatusError{http.StatusInternalServerError, err.Error(), nil}
+		return nil, &relax.StatusError{Code: http.StatusInternalServerError, Message: err.Error()}
 	}
 	for _, user := range u.People {
 		if id == user.ID {
@@ -49,7 +48,7 @@ func (u *Users) FindByID(idstr string) (*User, error) {
 		}
 	}
 	// user not found.
-	return nil, &relax.StatusError{http.StatusNotFound, "That user was not found", nil}
+	return nil, &relax.StatusError{Code: http.StatusNotFound, Message: "That user was not found"}
 }
 
 // Index handles "GET /v1/users"
