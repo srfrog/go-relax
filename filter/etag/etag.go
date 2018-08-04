@@ -1,5 +1,4 @@
-// Copyright 2014-present Codehack. All rights reserved.
-// For mobile and web development visit http://codehack.com
+// Copyright 2014 Codehack http://codehack.com
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
@@ -8,10 +7,11 @@ package etag
 import (
 	"crypto/sha1"
 	"encoding/hex"
-	"github.com/codehack/go-relax"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/codehack/go-relax"
 )
 
 // Filter ETag generates an entity-tag header "ETag" for body content of a response.
@@ -67,7 +67,7 @@ func (f *Filter) Run(next relax.HandlerFunc) relax.HandlerFunc {
 
 		etag = rb.Header().Get("ETag")
 
-		if (ctx.Request.Method == "GET" || ctx.Request.Method == "HEAD") && rb.Status() == http.StatusOK {
+		if isEtagMethod(ctx.Request.Method) && rb.Status() == http.StatusOK {
 			if etag == "" {
 				alter := ""
 				// Change etag when using content encoding.
@@ -114,7 +114,7 @@ func (f *Filter) Run(next relax.HandlerFunc) relax.HandlerFunc {
 			ifnone := ctx.Request.Header.Get("If-None-Match")
 			if ifnone != "" && ((ifnone == "*" && etag != "") || etagWeakCmp(ifnone, etag)) {
 				// defer rb.Reset()
-				if ctx.Request.Method == "GET" || ctx.Request.Method == "HEAD" {
+				if isEtagMethod(ctx.Request.Method) {
 					rb.Header().Set("ETag", etag)
 					rb.Header().Add("Vary", "If-None-Match")
 					rb.WriteHeader(http.StatusNotModified)
@@ -128,7 +128,7 @@ func (f *Filter) Run(next relax.HandlerFunc) relax.HandlerFunc {
 
 			// If-Modified-Since
 			ifmods := ctx.Request.Header.Get("If-Modified-Since")
-			if ifnone == "" && ifmods != "" && !(ctx.Request.Method == "GET" || ctx.Request.Method == "HEAD") {
+			if ifnone == "" && ifmods != "" && !isEtagMethod(ctx.Request.Method) {
 				modtime, _ := time.Parse(http.TimeFormat, ifmods)
 				lastmod, _ := time.Parse(http.TimeFormat, rb.Header().Get("Last-Modified"))
 				if !modtime.IsZero() && !lastmod.IsZero() && (lastmod.Before(modtime) || lastmod.Equal(modtime)) {
@@ -150,4 +150,8 @@ func (f *Filter) Run(next relax.HandlerFunc) relax.HandlerFunc {
 			rb.Header().Add("Vary", "If-None-Match")
 		}
 	}
+}
+
+func isEtagMethod(m string) bool {
+	return m == "GET" || m == "HEAD"
 }

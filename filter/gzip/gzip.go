@@ -1,5 +1,4 @@
-// Copyright 2014-present Codehack. All rights reserved.
-// For mobile and web development visit http://codehack.com
+// Copyright 2014 Codehack http://codehack.com
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
@@ -7,8 +6,9 @@ package gzip
 
 import (
 	"compress/gzip"
-	"github.com/codehack/go-relax"
 	"strings"
+
+	"github.com/codehack/go-relax"
 )
 
 // Filter Gzip compresses the response with gzip encoding, if the client
@@ -79,7 +79,6 @@ func (f *Filter) Run(next relax.HandlerFunc) relax.HandlerFunc {
 		// this might happen when FilterETag runs after GZip
 		case rb.Status() == 304:
 			ctx.WriteHeader(304)
-			break
 		case rb.Status() == 204, rb.Status() > 299, rb.Status() < 200:
 			break
 		case rb.Header().Get("Content-Range") != "":

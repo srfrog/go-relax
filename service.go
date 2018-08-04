@@ -1,5 +1,4 @@
-// Copyright 2014-present Codehack. All rights reserved.
-// For mobile and web development visit http://codehack.com
+// Copyright 2014 Codehack http://codehack.com
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
@@ -251,6 +250,10 @@ Any entities that don't implement the required interfaces, will be ignored.
 func (svc *Service) Use(entities ...interface{}) *Service {
 	for _, e := range entities {
 		switch entity := e.(type) {
+		case LimitedFilter:
+			if !e.(LimitedFilter).RunIn(svc) {
+				svc.Logf("relax: Filter not usable for service: %T", entity)
+			}
 		case Encoder:
 			svc.encoders[entity.Accept()] = entity
 		case Filter:

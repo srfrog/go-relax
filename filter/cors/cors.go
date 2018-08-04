@@ -1,18 +1,18 @@
-// Copyright 2014-present Codehack. All rights reserved.
-// For mobile and web development visit http://codehack.com
+// Copyright 2014 Codehack http://codehack.com
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
 package cors
 
 import (
-	"github.com/codehack/go-relax"
-	"github.com/codehack/go-strarr"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/codehack/go-relax"
+	"github.com/codehack/go-strarr"
 )
 
 const defaultCORSMaxAge = 86400 // 24 hours
@@ -105,7 +105,7 @@ type Filter struct {
 }
 
 func (f *Filter) corsHeaders(origin string) http.Header {
-	headers := make(http.Header, 0)
+	headers := make(http.Header)
 	switch {
 	case f.AllowCredentials:
 		headers.Set("Access-Control-Allow-Origin", origin)
@@ -128,12 +128,12 @@ func (f *Filter) corsHeaders(origin string) http.Header {
 // XXX: It will skip steps 9 & 10, as per the recommendation.
 func (f *Filter) handlePreflightRequest(origin, rmethod, rheaders string) (http.Header, error) {
 	if !strarr.Contains(simpleMethods, rmethod) && !strarr.Contains(f.AllowMethods, rmethod) {
-		return nil, &relax.StatusError{http.StatusMethodNotAllowed, "Invalid method in preflight", nil}
+		return nil, &relax.StatusError{Code: http.StatusMethodNotAllowed, Message: "Invalid method in preflight"}
 	}
 	if rheaders != "" {
 		arr := strarr.Map(strings.TrimSpace, strings.Split(rheaders, ","))
 		if len(strarr.Diff(arr, f.AllowHeaders)) == 0 {
-			return nil, &relax.StatusError{http.StatusForbidden, "Invalid header in preflight", nil}
+			return nil, &relax.StatusError{Code: http.StatusForbidden, Message: "Invalid header in preflight"}
 		}
 	}
 
