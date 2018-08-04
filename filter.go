@@ -1,5 +1,4 @@
-// Copyright 2014-present Codehack. All rights reserved.
-// For mobile and web development visit http://codehack.com
+// Copyright 2014 Codehack http://codehack.com
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
@@ -26,4 +25,26 @@ type Filter interface {
 	// It takes a HandlerFunc function argument, which is executed within the
 	// closure returned.
 	Run(HandlerFunc) HandlerFunc
+}
+
+/*
+LimitedFilter are filters that only can be used with a set of resources.
+Where resource is one of: ``Router`` (interface), ``*Resource`` and ``*Service``
+The ``RunIn()`` func should return true for the type(s) allowed, false otherwise.
+
+	func (f *MyFilter) RunIn(r interface{}) bool {
+		switch r.(type) {
+		case relax.Router:
+			return true
+		case *relax.Resource:
+			return true
+		case *relax.Service:
+			return false
+		}
+		return false
+	}
+
+*/
+type LimitedFilter interface {
+	RunIn(interface{}) bool
 }

@@ -1,14 +1,14 @@
-// Copyright 2014-present Codehack. All rights reserved. 
-// For mobile and web development visit http://codehack.com
+// Copyright 2014 Codehack http://codehack.com
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
 package limits
 
 import (
-	"github.com/codehack/go-relax"
 	"net/http"
 	"time"
+
+	"github.com/codehack/go-relax"
 )
 
 // Throttle allows to limit the rate of requests to a resource per specific time duration.

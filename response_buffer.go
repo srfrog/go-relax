@@ -1,5 +1,4 @@
-// Copyright 2014-present Codehack. All rights reserved.
-// For mobile and web development visit http://codehack.com
+// Copyright 2014 Codehack http://codehack.com
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
@@ -101,7 +100,7 @@ var responseBufferPool = sync.Pool{
 // See also: ResponseBuffer.Free
 func NewResponseBuffer(w http.ResponseWriter) *ResponseBuffer {
 	rb := responseBufferPool.Get().(*ResponseBuffer)
-	rb.header = make(http.Header, 0)
+	rb.header = make(http.Header)
 	for k, v := range w.Header() {
 		rb.header[k] = v
 	}

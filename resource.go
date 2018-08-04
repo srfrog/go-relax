@@ -1,5 +1,4 @@
-// Copyright 2014-present Codehack. All rights reserved.
-// For mobile and web development visit http://codehack.com
+// Copyright 2014 Codehack http://codehack.com
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
@@ -119,19 +118,28 @@ Returns the resource itself for chaining.
 */
 func (r *Resource) Route(method, path string, h HandlerFunc, filters ...Filter) *Resource {
 	handler := r.relationHandler(h)
-	if filters != nil {
-		for i := len(filters) - 1; i >= 0; i-- {
-			handler = filters[i].Run(handler)
-		}
-	}
-	if r.filters != nil {
-		for i := len(r.filters) - 1; i >= 0; i-- {
-			handler = r.filters[i].Run(handler)
-		}
-	}
+
+	// route-specific filters
+	r.attachFilters(handler, filters...)
+
+	// inherited resource filters
+	r.attachFilters(handler, r.filters...)
+
 	r.service.router.AddRoute(strings.ToUpper(method), r.path+"/"+path, handler)
 
 	return r
+}
+
+func (r *Resource) attachFilters(h HandlerFunc, filters ...Filter) {
+	if filters == nil {
+		return
+	}
+	for i := len(filters) - 1; i >= 0; i-- {
+		if l, ok := filters[i].(LimitedFilter); ok && !l.RunIn(r.service.Router) {
+			continue
+		}
+		h = filters[i].Run(h)
+	}
 }
 
 // DELETE is a convenient alias to Route using DELETE as method
@@ -262,7 +270,13 @@ func (svc *Service) Resource(collection Resourcer, filters ...Filter) *Resource 
 
 	// user-specified filters
 	if filters != nil {
-		res.filters = append(res.filters, filters...)
+		for i := range filters {
+			if l, ok := filters[i].(LimitedFilter); ok && !l.RunIn(res) {
+				svc.Logf("relax: Filter not usable for resource: %T", filters[i])
+				continue
+			}
+			res.filters = append(res.filters, filters[i])
+		}
 	}
 
 	// OPTIONS lists the methods allowed.
