@@ -10,37 +10,38 @@ import (
 	"strings"
 )
 
-// Link an HTTP header tag that represents a hypertext relation link. It implements
-// HTTP web links between resources that are not format specific.
-//
-// For details see also,
-// Web Linking: :https://tools.ietf.org/html/rfc5988
-// Relations: http://www.iana.org/assignments/link-relations/link-relations.xhtml
-// Item and Collection Link Relations: http://tools.ietf.org/html/rfc6573
-// Versioning: https://tools.ietf.org/html/rfc5829
-// URI Template: http://tools.ietf.org/html/rfc6570
-// Media: http://www.w3.org/TR/css3-mediaqueries/
-//
-// The field title* ``Titlex`` must be encoded as per RFC5987.
-// See: http://greenbytes.de/tech/webdav/rfc5988.html#RFC5987
-//
-// Extension field ``Ext`` must be name lowercase and quoted-string value,
-// as needed.
-//
-// Example:
-//
-// link := Link{
-// 	URI: "/v1/schemas",
-// 	Rel: "index",
-// 	Ext: "priority=\"important\"",
-// 	Title: "Definition of schemas",
-// 	Titlex: "utf-8'es'\"Definición de esquemas\"",
-// 	HrefLang: "en-US",
-// 	Media: "screen, print",
-// 	Type: "text/html;charset=utf-8",
-// }
-//
-//
+/*
+Link an HTTP header tag that represents a hypertext relation link. It implements
+HTTP web links between resources that are not format specific.
+
+For details see also,
+Web Linking: :https://tools.ietf.org/html/rfc5988
+Relations: http://www.iana.org/assignments/link-relations/link-relations.xhtml
+Item and Collection Link Relations: http://tools.ietf.org/html/rfc6573
+Versioning: https://tools.ietf.org/html/rfc5829
+URI Template: http://tools.ietf.org/html/rfc6570
+Media: http://www.w3.org/TR/css3-mediaqueries/
+
+The field title* ``Titlex`` must be encoded as per RFC5987.
+See: http://greenbytes.de/tech/webdav/rfc5988.html#RFC5987
+
+Extension field ``Ext`` must be name lowercase and quoted-string value,
+as needed.
+
+Example:
+
+	link := Link{
+		URI: "/v1/schemas",
+		Rel: "index",
+		Ext: "priority=\"important\"",
+		Title: "Definition of schemas",
+		Titlex: "utf-8'es'\"Definición de esquemas\"",
+		HrefLang: "en-US",
+		Media: "screen, print",
+		Type: "text/html;charset=utf-8",
+	}
+
+*/
 type Link struct {
 	URI      string `json:"href"`
 	Rel      string `json:"rel"`
