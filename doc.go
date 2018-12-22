@@ -1,4 +1,4 @@
-// Copyright 2014 Codehack.com All rights reserved.
+// Copyright 2014 Codehack http://codehack.com
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
@@ -19,9 +19,4 @@ from Heroku's REST API.
 package relax
 
 // Version is the version of this package.
-const Version = "0.5.2"
-
-func init() {
-	// only printed, not logged.
-	println("Welcome to Go-Relax version", Version)
-}
+const Version = "1.0.0"

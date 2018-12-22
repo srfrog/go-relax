@@ -1,4 +1,4 @@
-// Copyright 2014 Codehack.com All rights reserved.
+// Copyright 2014 Codehack http://codehack.com
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 

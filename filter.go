@@ -1,12 +1,8 @@
-// Copyright 2014 Codehack.com All rights reserved.
+// Copyright 2014 Codehack http://codehack.com
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
 package relax
-
-// HandlerFunc is simply a version of http.HandlerFunc that uses Context.
-// All filters must return and accept this type.
-type HandlerFunc func(*Context)
 
 /*
 Filter is a function closure that is chained in FILO (First-In Last-Out) order.
@@ -29,4 +25,26 @@ type Filter interface {
 	// It takes a HandlerFunc function argument, which is executed within the
 	// closure returned.
 	Run(HandlerFunc) HandlerFunc
+}
+
+/*
+LimitedFilter are filters that only can be used with a set of resources.
+Where resource is one of: ``Router`` (interface), ``*Resource`` and ``*Service``
+The ``RunIn()`` func should return true for the type(s) allowed, false otherwise.
+
+	func (f *MyFilter) RunIn(r interface{}) bool {
+		switch r.(type) {
+		case relax.Router:
+			return true
+		case *relax.Resource:
+			return true
+		case *relax.Service:
+			return false
+		}
+		return false
+	}
+
+*/
+type LimitedFilter interface {
+	RunIn(interface{}) bool
 }

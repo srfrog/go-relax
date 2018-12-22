@@ -1,13 +1,14 @@
-// Copyright 2014 Codehack.com All rights reserved.
+// Copyright 2014 Codehack http://codehack.com
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
 package limits_test
 
 import (
-	"github.com/codehack/go-relax"
-	"github.com/codehack/go-relax/limits"
 	"time"
+
+	"github.com/codehack/go-relax"
+	"github.com/codehack/go-relax/filter/limits"
 )
 
 type Count int

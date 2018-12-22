@@ -1,4 +1,4 @@
-# Go-Relax [![GoDoc](https://godoc.org/github.com/codehack/go-relax?status.svg)](https://godoc.org/github.com/codehack/go-relax) ![Project progress](http://progressed.io/bar/45 "Progress")
+# Go-Relax [![GoDoc](https://godoc.org/github.com/codehack/go-relax?status.svg)](https://godoc.org/github.com/codehack/go-relax) [![Go Report Card](https://goreportcard.com/badge/github.com/codehack/go-relax?svg=1)](https://goreportcard.com/report/github.com/codehack/go-relax)
 
 *Build fast and complete RESTful APIs in [Go](http://golang.org)*
 
@@ -16,12 +16,12 @@ Then import from your source:
 
 View [example_test.go](https://github.com/codehack/go-relax/blob/master/example_test.go) for an extended example of basic usage and features.
 
-Also, check the [wiki](https://github.com/codehack/go-relax/wiki) for Howto's and recipes.
+Also, check the [wiki](https://github.com/codehack/go-relax/wiki) for HowTo's and recipes.
 
 ## Features
 
 - Helps build API's that follow the REST concept using ROA principles.
-- Built-in support of HATEOAS constraint with Link header (and soon JSON-LD).
+- Built-in support of HATEOAS constraint with Web Linking header tags.
 - Follows REST "best practices", with inspiration from Heroku and GitHub.
 - Works fine along with ``http.ServeMux`` or independently as ``http.Handler``
 - Supports different media types, and **mixed** for requests and responses.
@@ -41,8 +41,13 @@ Also, check the [wiki](https://github.com/codehack/go-relax/wiki) for Howto's an
 - [x] Method override - GET/POST method override via HTTP header and query string.
 - [x] Security - Various security practices for request handling.
 - [x] Limits - request throttler, token-based rate limiter, and memory limits.
-- [ ] RestCop (Constraints Output Profiler) - it warns you when your responses are not RESTful.
-- [ ] Status - system status.
+
+#### Upcoming filters
+
+- [ ] Relaxed - Test API's compliance with [Relax API Specification](https://github.com/codehack/relax-api) (based on REST).
+- [ ] JSON-API support.
+- [ ] JSON-Schema for validating requests and responses.
+- [ ] Collection-JSON support.
 
 ## Documentation
 
@@ -95,8 +100,5 @@ Content-Length: 14
 
 ## Credits
 
-**Go-Relax** is Copyright (c) 2014 [Codehack](http://codehack.com).
-Published under [MIT License](https://raw.githubusercontent.com/codehack/go-relax/master/LICENSE)
-
-
-
+**Go-Relax** is Copyright (c) [Codehack](http://codehack.com).
+Published under an [MIT License](https://raw.githubusercontent.com/codehack/go-relax/master/LICENSE)

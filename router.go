@@ -1,4 +1,4 @@
-// Copyright 2014 Codehack.com All rights reserved.
+// Copyright 2014 Codehack http://codehack.com
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
@@ -38,6 +38,8 @@ for a value and varname is the name to give the variable that matches the value.
 
 	"{hex:varname}" // matches a hex number, with optional "0x" prefix.
 
+	"{uuid:varname}" // matches an UUID.
+
 	"{varname}" // catch-all; matches anything. it may overlap other matches.
 
 	"*" // translated into "{wild}"
@@ -68,7 +70,7 @@ type Router interface {
 	// return it. If no match is found, it should return an StatusError error which will
 	// be sent to the requester. The default errors ErrRouteNotFound and
 	// ErrRouteBadMethod cover the default cases.
-	FindHandler(*Context) (HandlerFunc, error)
+	FindHandler(string, string, *url.Values) (HandlerFunc, error)
 
 	// AddRoute is used to create new routes to resources. It expects the HTTP method
 	// (GET, POST, ...) followed by the resource path and the handler function.
@@ -80,7 +82,7 @@ type Router interface {
 }
 
 // These are errors returned by the default routing engine. You are encouraged to
-// reuse them with your own routing engine.
+// reuse them with your own Router.
 var (
 	// ErrRouteNotFound is returned when the path searched didn't reach a resource handler.
 	ErrRouteNotFound = &StatusError{http.StatusNotFound, "That route was not found.", nil}
@@ -90,7 +92,7 @@ var (
 )
 
 // pathRegexpCache is a cache of all compiled regexp's so they can be reused.
-var pathRegexpCache = make(map[string]*regexp.Regexp, 0)
+var pathRegexpCache = make(map[string]*regexp.Regexp)
 
 // trieRegexpRouter implements Router with a trie that can store regular expressions.
 // root points to the top of the tree from which all routes are searched and matched.
@@ -113,10 +115,20 @@ type trieRegexpRouter struct {
 //        - suppose "111" might be matched via regexp, then "users".numExp > 0
 //        - "111" segment will point to the handler users.GetUser()
 type trieNode struct {
+	pseg    string
 	handler HandlerFunc
 	numExp  int
 	depth   int
-	links   map[string]*trieNode
+	links   []*trieNode
+}
+
+func (n *trieNode) findLink(pseg string) *trieNode {
+	for i := range n.links {
+		if n.links[i].pseg == pseg {
+			return n.links[i]
+		}
+	}
+	return nil
 }
 
 // segmentExp compiles the pattern string into a regexp so it can used in a
@@ -132,13 +144,13 @@ func segmentExp(pattern string) *regexp.Regexp {
 	// any: catch-all pattern
 	p := regexp.MustCompile(`\{\w+\}`).
 		ReplaceAllStringFunc(pattern, func(m string) string {
-		return fmt.Sprintf(`(?P<%s>.+)`, m[1:len(m)-1])
-	})
+			return fmt.Sprintf(`(?P<%s>.+)`, m[1:len(m)-1])
+		})
 	// word: matches an alphanumeric word, with underscores.
 	p = regexp.MustCompile(`\{(?:word\:)\w+\}`).
 		ReplaceAllStringFunc(p, func(m string) string {
-		return fmt.Sprintf(`(?P<%s>\w+)`, m[6:len(m)-1])
-	})
+			return fmt.Sprintf(`(?P<%s>\w+)`, m[6:len(m)-1])
+		})
 	// date: matches a date as described in ISO 8601. see: https://en.wikipedia.org/wiki/ISO_8601
 	// accepted values:
 	// 	YYYY
@@ -153,12 +165,14 @@ func segmentExp(pattern string) *regexp.Regexp {
 	//
 	p = regexp.MustCompile(`\{(?:date\:)\w+\}`).
 		ReplaceAllStringFunc(p, func(m string) string {
-		name := m[6 : len(m)-1]
-		return fmt.Sprintf(`(?P<%s>(`+
-			`(?P<%s_year>\d{4})([/-]?(?P<%s_mon>(0[1-9])|(1[012]))([/-]?(?P<%s_mday>(0[1-9])|([12]\d)|(3[01])))?)?`+
-			`(?:T(?P<%s_hour>([01][0-9])|(?:2[0123]))(\:?(?P<%s_min>[0-5][0-9])(\:?(?P<%s_sec>[0-5][0-9]([\,\.]\d{1,10})?))?)?(?:Z|([\-+](?:([01][0-9])|(?:2[0123]))(\:?(?:[0-5][0-9]))?))?)?`+
-			`))`, name, name, name, name, name, name, name)
-	})
+			name := m[6 : len(m)-1]
+			return fmt.Sprintf(`(?P<%[1]s>(`+
+				`(?P<%[1]s_year>\d{4})([/-]?`+
+				`(?P<%[1]s_mon>(0[1-9])|(1[012]))([/-]?`+
+				`(?P<%[1]s_mday>(0[1-9])|([12]\d)|(3[01])))?)?`+
+				`(?:T(?P<%[1]s_hour>([01][0-9])|(?:2[0123]))(\:?(?P<%[1]s_min>[0-5][0-9])(\:?(?P<%[1]s_sec>[0-5][0-9]([\,\.]\d{1,10})?))?)?(?:Z|([\-+](?:([01][0-9])|(?:2[0123]))(\:?(?:[0-5][0-9]))?))?)?`+
+				`))`, name)
+		})
 	// geo: geo location in decimal. See http://tools.ietf.org/html/rfc5870
 	// accepted values:
 	// 	lat,lon           (point)
@@ -166,40 +180,53 @@ func segmentExp(pattern string) *regexp.Regexp {
 	// 	lag,lon;u=unc     (circle)
 	// 	lat,lon,alt;u=unc (sphere)
 	// 	lat,lon;crs=name  (point with coordinate reference system (CRS) value)
-	p = regexp.MustCompile(`\{(?:geo\:)\w+\}`).
-		ReplaceAllStringFunc(p, func(m string) string {
+	p = regexp.MustCompile(`\{(?:geo\:)\w+\}`).ReplaceAllStringFunc(p, func(m string) string {
 		name := m[5 : len(m)-1]
-		return fmt.Sprintf(`(?P<%s_lat>\-?\d+(\.\d+)?)[,;](?P<%s_lon>\-?\d+(\.\d+)?)([,;](?P<%s_alt>\-?\d+(\.\d+)?))?(((?:;crs=)(?P<%s_crs>[\w\-]+))?((?:;u=)(?P<%s_u>\-?\d+(\.\d+)?))?)?`, name, name, name, name, name)
+		return fmt.Sprintf(`(?P<%[1]s_lat>\-?\d+(\.\d+)?)[,;]`+
+			`(?P<%[1]s_lon>\-?\d+(\.\d+)?)([,;]`+
+			`(?P<%[1]s_alt>\-?\d+(\.\d+)?))?(((?:;crs=)`+
+			`(?P<%[1]s_crs>[\w\-]+))?((?:;u=)`+
+			`(?P<%[1]s_u>\-?\d+(\.\d+)?))?)?`, name)
 	})
-	// hex: matches a hexadecimal number (assume 32bit)
+	// hex: matches a hexadecimal number.
 	// accepted value: 0xNN
 	p = regexp.MustCompile(`\{(?:hex\:)\w+\}`).
 		ReplaceAllStringFunc(p, func(m string) string {
-		return fmt.Sprintf(`(?P<%s>(?:0x)?[[:xdigit:]]+)`, m[5:len(m)-1])
-	})
+			return fmt.Sprintf(`(?P<%s>(?:0x)?[[:xdigit:]]+)`, m[5:len(m)-1])
+		})
+	// uuid: matches an UUID using hex octets, with optional dashes.
+	// accepted value: NNNNNNNN-NNNN-NNNN-NNNN-NNNNNNNNNNNN
+	p = regexp.MustCompile(`\{(?:uuid\:)\w+\}`).
+		ReplaceAllStringFunc(p, func(m string) string {
+			return fmt.Sprintf(`(?P<%s>[[:xdigit:]]{8}\-?`+
+				`[[:xdigit:]]{4}\-?`+
+				`[[:xdigit:]]{4}\-?`+
+				`[[:xdigit:]]{4}\-?`+
+				`[[:xdigit:]]{12})`, m[6:len(m)-1])
+		})
 	// float: matches a floating-point number
 	p = regexp.MustCompile(`\{(?:float\:)\w+\}`).
 		ReplaceAllStringFunc(p, func(m string) string {
-		return fmt.Sprintf(`(?P<%s>[\-+]?\d+\.\d+)`, m[7:len(m)-1])
-	})
-	// uint: matches an unsigned integer number (assume 32bit)
+			return fmt.Sprintf(`(?P<%s>[\-+]?\d+\.\d+)`, m[7:len(m)-1])
+		})
+	// uint: matches an unsigned integer number (64bit)
 	p = regexp.MustCompile(`\{(?:uint\:)\w+\}`).
 		ReplaceAllStringFunc(p, func(m string) string {
-		return fmt.Sprintf(`(?P<%s>\d{1,10})`, m[6:len(m)-1])
-	})
-	// int: matches a signed integer number (assume 32bit)
+			return fmt.Sprintf(`(?P<%s>\d{1,18})`, m[6:len(m)-1])
+		})
+	// int: matches a signed integer number (64bit)
 	p = regexp.MustCompile(`\{(?:int\:)\w+\}`).
 		ReplaceAllStringFunc(p, func(m string) string {
-		return fmt.Sprintf(`(?P<%s>[-+]?\d{1,10})`, m[5:len(m)-1])
-	})
+			return fmt.Sprintf(`(?P<%s>[-+]?\d{1,18})`, m[5:len(m)-1])
+		})
 	return regexp.MustCompile(p)
 }
 
 // AddRoute breaks a path into segments and inserts them in the tree. If a
 // segment contains matching {}'s then it is tried as a regexp segment, otherwise it is
 // treated as a regular string segment.
-func (router *trieRegexpRouter) AddRoute(method, path string, handler HandlerFunc) {
-	node := router.root
+func (r *trieRegexpRouter) AddRoute(method, path string, handler HandlerFunc) {
+	node := r.root
 	pseg := strings.Split(method+strings.TrimRight(path, "/"), "/")
 	for i := range pseg {
 		if (strings.Contains(pseg[i], "{") && strings.Contains(pseg[i], "}")) || strings.Contains(pseg[i], "*") {
@@ -208,37 +235,39 @@ func (router *trieRegexpRouter) AddRoute(method, path string, handler HandlerFun
 			}
 			node.numExp++
 		}
-		if node.links[pseg[i]] == nil {
-			if node.links == nil {
-				node.links = make(map[string]*trieNode, 0)
+		link := node.findLink(pseg[i])
+		if link == nil {
+			link = &trieNode{
+				pseg:  pseg[i],
+				depth: node.depth + 1,
 			}
-			node.links[pseg[i]] = &trieNode{depth: node.depth + 1}
+			node.links = append(node.links, link)
 		}
-		node = node.links[pseg[i]]
+		node = link
 	}
 
 	node.handler = handler
 
 	// update methods list
-	if !strings.Contains(strings.Join(router.methods, ","), method) {
-		router.methods = append(router.methods, method)
+	if !strings.Contains(strings.Join(r.methods, ","), method) {
+		r.methods = append(r.methods, method)
 	}
 }
 
 // matchSegment tries to match a path segment 'pseg' to the node's regexp links.
 // This function will return any path values matched so they can be used in
 // Request.PathValues.
-func (node *trieNode) matchSegment(pseg string, depth int, values *url.Values) *trieNode {
-	if node.numExp == 0 {
-		return node.links[pseg]
+func (n *trieNode) matchSegment(pseg string, depth int, values *url.Values) *trieNode {
+	if n.numExp == 0 {
+		return n.findLink(pseg)
 	}
-	for pexp := range node.links {
-		rx := pathRegexpCache[pexp]
+	for pexp := range n.links {
+		rx := pathRegexpCache[n.links[pexp].pseg]
 		if rx == nil {
 			continue
 		}
 		// this prevents the matching to be side-tracked by smaller paths.
-		if depth > node.links[pexp].depth && node.links[pexp].links == nil {
+		if depth > n.links[pexp].depth && n.links[pexp].links == nil {
 			continue
 		}
 		m := rx.FindStringSubmatch(pseg)
@@ -256,21 +285,23 @@ func (node *trieNode) matchSegment(pseg string, depth int, values *url.Values) *
 					}
 				}
 			}
-			return node.links[pexp]
+			return n.links[pexp]
 		}
 	}
-	return node.links[pseg]
+	return n.findLink(pseg)
 }
 
 // FindHandler returns a resource handler that matches the requested route; or
 // an error (StatusError) if none found.
-func (router *trieRegexpRouter) FindHandler(ctx *Context) (HandlerFunc, error) {
-	method := ctx.Request.Method
+// method is the HTTP verb.
+// path is the relative URI path.
+// values is a pointer to an url.Values map to store parameters from the path.
+func (r *trieRegexpRouter) FindHandler(method, path string, values *url.Values) (HandlerFunc, error) {
 	if method == "HEAD" {
 		method = "GET"
 	}
-	node := router.root
-	pseg := strings.Split(method+strings.TrimRight(ctx.Request.URL.Path, "/"), "/")
+	node := r.root
+	pseg := strings.Split(method+strings.TrimRight(path, "/"), "/") // ex: GET/api/users
 	slen := len(pseg)
 	for i := range make([]struct{}, slen) {
 		if node == nil {
@@ -279,7 +310,7 @@ func (router *trieRegexpRouter) FindHandler(ctx *Context) (HandlerFunc, error) {
 			}
 			return nil, ErrRouteNotFound
 		}
-		node = node.matchSegment(pseg[i], slen, &ctx.PathValues)
+		node = node.matchSegment(pseg[i], slen, values)
 	}
 
 	if node == nil || node.handler == nil {
@@ -291,13 +322,13 @@ func (router *trieRegexpRouter) FindHandler(ctx *Context) (HandlerFunc, error) {
 // PathMethods returns a string with comma-separated HTTP methods that match
 // the path. This list is suitable for Allow header response. Note that this
 // function only lists the methods, not if they are allowed.
-func (router *trieRegexpRouter) PathMethods(path string) string {
+func (r *trieRegexpRouter) PathMethods(path string) string {
 	var node *trieNode
 	methods := "HEAD" // cheat
 	pseg := strings.Split("*"+strings.TrimRight(path, "/"), "/")
 	slen := len(pseg)
-	for _, method := range router.methods {
-		node = router.root
+	for _, method := range r.methods {
+		node = r.root
 		pseg[0] = method
 		for i := range pseg {
 			if node == nil {

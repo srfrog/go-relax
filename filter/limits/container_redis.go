@@ -1,13 +1,14 @@
-// Copyright 2014 Codehack.com All rights reserved.
+// Copyright 2014 Codehack http://codehack.com
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
 package limits
 
 import (
-	"github.com/garyburd/redigo/redis"
 	"net/url"
 	"time"
+
+	"github.com/garyburd/redigo/redis"
 )
 
 // RedisBucket implements Container using Redis strings.
@@ -17,10 +18,14 @@ type RedisBucket struct {
 	Pool *redis.Pool
 }
 
+// Capacity returns the max number of tokens per client
 func (b *RedisBucket) Capacity() int {
 	return b.Size
 }
 
+// Consume takes tokens from a bucket.
+// Returns the number of tokens available, time in seconds for next one, and
+// a boolean indicating whether of not a token was consumed.
 func (b *RedisBucket) Consume(key string, n int) (int, int, bool) {
 	tokens := b.fill(key)
 	if tokens < n {
@@ -32,6 +37,7 @@ func (b *RedisBucket) Consume(key string, n int) (int, int, bool) {
 	return tokens, b.wait(b.Size), true
 }
 
+// Reset will fill-up a bucket regardless of time/count.
 func (b *RedisBucket) Reset(key string) {
 	c := b.Pool.Get()
 	defer c.Close()
@@ -129,7 +135,7 @@ func newRedisPool(uri string) *redis.Pool {
 				return nil, err
 			}
 			if auth != "" {
-				if err := c.Send("AUTH", auth); err != nil {
+				if err = c.Send("AUTH", auth); err != nil {
 					c.Close()
 					return nil, err
 				}
@@ -149,7 +155,7 @@ func newRedisPool(uri string) *redis.Pool {
 	}
 }
 
-// func NewRedisBucket(uri string, capacity, rate int) Container {
+// NewRedisBucket returns a new Redis bucket.
 func NewRedisBucket(uri string, capacity, rate int) *RedisBucket {
 	return &RedisBucket{
 		Size: capacity,

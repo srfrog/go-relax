@@ -1,17 +1,19 @@
-// Copyright 2014 Codehack.com All rights reserved.
+// Copyright 2014 Codehack http://codehack.com
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-package relax
+package override
 
 import (
 	"net/http"
+
+	"github.com/codehack/go-relax"
 )
 
-// FilterOverride changes the Request.Method if the client specifies
+// Filter Override changes the Request.Method if the client specifies
 // override via HTTP header or query. This allows clients with limited HTTP
 // verbs to send REST requests through GET/POST.
-type FilterOverride struct {
+type Filter struct {
 	// Header expected for HTTP Method override
 	// Default: "X-HTTP-Method-Override"
 	Header string
@@ -20,7 +22,7 @@ type FilterOverride struct {
 	// Default: "_method"
 	QueryVar string
 
-	// Methods specifies the methods can be overriden.
+	// Methods specifies the methods can be overridden.
 	// Format is Methods["method"] = "override".
 	// Default methods:
 	//		f.Methods = map[string]string{
@@ -33,8 +35,10 @@ type FilterOverride struct {
 }
 
 // Run runs the filter and passes down the following Info:
-//		ctx.Info.Get("override.method") // method replaced. e.g., "DELETE"
-func (f *FilterOverride) Run(next HandlerFunc) HandlerFunc {
+//
+//		ctx.Get("override.method") // method replaced. e.g., "DELETE"
+//
+func (f *Filter) Run(next relax.HandlerFunc) relax.HandlerFunc {
 	if f.Header == "" {
 		f.Header = "X-HTTP-Method-Override"
 	}
@@ -50,7 +54,7 @@ func (f *FilterOverride) Run(next HandlerFunc) HandlerFunc {
 		}
 	}
 
-	return func(ctx *Context) {
+	return func(ctx *relax.Context) {
 		if override := ctx.Request.URL.Query().Get(f.QueryVar); override != "" {
 			ctx.Request.Header.Set(f.Header, override)
 		}
@@ -68,7 +72,7 @@ func (f *FilterOverride) Run(next HandlerFunc) HandlerFunc {
 				}
 				ctx.Request.Method = override
 				ctx.Request.Header.Del(f.Header)
-				ctx.Info.Set("override.method", override)
+				ctx.Set("override.method", override)
 			}
 		}
 		next(ctx)

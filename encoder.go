@@ -1,4 +1,4 @@
-// Copyright 2014 Codehack.com All rights reserved.
+// Copyright 2014 Codehack http://codehack.com
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
@@ -58,10 +58,10 @@ type EncoderJSON struct {
 	ContentTypeHeader string
 }
 
-// NewEncoderJSON returns an EncoderJSON object. This function will initiallize
+// NewEncoder returns an EncoderJSON object. This function will initiallize
 // the object with sane defaults, for use with Service.encoders.
 // Returns the new EncoderJSON object.
-func NewEncoderJSON() *EncoderJSON {
+func NewEncoder() *EncoderJSON {
 	return &EncoderJSON{
 		MaxBodySize:       2097152, // 2MB
 		Indented:          false,
@@ -102,7 +102,7 @@ func (e *EncoderJSON) Encode(writer io.Writer, v interface{}) error {
 // EncoderJSON.MaxBodySize, it will fail with error ErrBodyTooLarge
 // Returns nil on success and error on failure.
 func (e *EncoderJSON) Decode(reader io.Reader, v interface{}) error {
-	r := &io.LimitedReader{reader, e.MaxBodySize}
+	r := &io.LimitedReader{R: reader, N: e.MaxBodySize}
 	err := json.NewDecoder(r).Decode(v)
 	if err != nil && r.N == 0 {
 		return ErrBodyTooLarge

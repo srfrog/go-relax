@@ -1,16 +1,21 @@
-// Copyright 2014 Codehack.com All rights reserved.
+// Copyright 2014 Codehack http://codehack.com
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
 package relax
 
 import (
-	"code.google.com/p/go-uuid/uuid"
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
+
+	"context"
 )
+
+// serverVersion is used with the Server HTTP header.
+const serverVersion = "Go-Relax/" + Version
 
 // Logger interface is based on Go's ``log`` package. Objects that implement
 // this interface can provide logging to Relax resources.
@@ -22,6 +27,8 @@ type Logger interface {
 
 // Service contains all the information about the service and resources handled.
 // Specifically, the routing, encoding and service filters.
+// Additionally, a Service is a collection of resources making it a resource by itself.
+// Therefore, it implements the Resourcer interface. See: ``Service.Root``
 type Service struct {
 	// URI is the full reference URI to the service.
 	URI *url.URL
@@ -34,26 +41,12 @@ type Service struct {
 	filters []Filter
 	// resources is a list of all mapped resources
 	resources []*Resource
-	// links contains all the relation links
-	links []*Link
 	// uptime is a timestamp when service was started
 	uptime time.Time
 	// logger is the service logging system.
 	logger Logger
 	// Recovery is a handler function used to intervene after panic occur.
 	Recovery http.HandlerFunc
-}
-
-// ServiceOptions has a description of the options available for using
-// this service. This is used by the OPTIONS handler.
-type ServiceOptions struct {
-	BaseURI string `json:"href"`
-	Media   struct {
-		Type     string   `json:"type"`
-		Version  string   `json:"version"`
-		Language string   `json:"language"`
-		Encoders []string `json:"encoders"`
-	} `json:"media"`
 }
 
 // Logf prints an log entry to logger if set, or stdlog if nil.
@@ -66,88 +59,49 @@ func (svc *Service) Logf(format string, args ...interface{}) {
 	svc.logger.Printf(format, args...)
 }
 
-// getPath returns the base path of this service.
-// sub is a subpath segment to append to the path.
-// absolute whether or not it should return an absolute path.
-func (svc *Service) getPath(sub string, absolute bool) string {
-	path := svc.URI.Path
-	if absolute {
-		path = svc.URI.String()
-	}
-	if sub != "" {
-		path += sub
-	}
-	return path
-}
-
-// optionsHandler responds to OPTION requests. It reponds with the list of
-// service options.
-func (svc *Service) optionsHandler(ctx *Context) {
-	ctx.Header().Set("Allow", svc.router.PathMethods(ctx.Request.URL.Path))
-	ctx.Respond(svc.Options())
-}
-
-// Options returns the options available from this service. This information
-// is useful when creating OPTIONS routes.
-func (svc *Service) Options() *ServiceOptions {
-	options := &ServiceOptions{}
-	options.BaseURI = svc.URI.String()
-	options.Media.Type = ContentMediaType
-	options.Media.Version = ContentDefaultVersion
-	options.Media.Language = ContentDefaultLanguage
-	for k := range svc.encoders {
-		options.Media.Encoders = append(options.Media.Encoders, k)
-	}
-	return options
-}
-
-// rootHandler is a handler that responds with a list of all resources managed
+// Index is a handler that responds with a list of all resources managed
 // by the service. This is the default route to the base URI.
+// With this function Service implements the Resourcer interface which is
+// a resource of itself (the "root" resource).
 // FIXME: this pukes under XML (maps of course).
-func (svc *Service) rootHandler(ctx *Context) {
+func (svc *Service) Index(ctx *Context) {
 	resources := make(map[string]string)
-	for _, v := range svc.resources {
-		resources[v.name] = svc.getPath(v.name, true)
-	}
-	for _, link := range svc.links {
-		ctx.Header().Add("Link", link.String())
+	for _, r := range svc.resources {
+		resources[r.name] = r.Path(true)
+		for _, l := range r.links {
+			if l.Rel == "collection" {
+				ctx.Header().Add("Link", l.String())
+			}
+		}
 	}
 	ctx.Respond(resources)
 }
 
-// NewRequestID returns a new request ID value based on UUID; or checks
-// an id specified if it's valid for use as a request ID. If the id is not
-// valid then it returns a new ID.
-//
-// A valid ID must be between 20 and 200 chars in length, and URL-encoded.
-func NewRequestID(id string) string {
-	if id == "" {
-		return uuid.New()
+// BUG(TODO): Complete PATCH support - http://tools.ietf.org/html/rfc5789, http://tools.ietf.org/html/rfc6902
+
+// Options implements the Optioner interface to handle OPTION requests for the root
+// resource service.
+func (svc *Service) Options(ctx *Context) {
+	options := map[string]string{
+		"base_href":          svc.URI.String(),
+		"mediatype_template": Content.Mediatype + "+{subtype}; version={version}; lang={language}",
+		"version_default":    Content.Version,
+		"language_default":   Content.Language,
+		"encoding_default":   svc.encoders["application/json"].Accept(),
 	}
-	l := 0
-	for i, c := range id {
-		switch {
-		case 'A' <= c && c <= 'Z':
-		case 'a' <= c && c <= 'z':
-		case '0' <= c && c <= '9':
-		case c == '-', c == '_', c == '.', c == '~', c == '%', c == '+':
-		case i > 199:
-			fallthrough
-		default:
-			return uuid.New()
-		}
-		l = i
-	}
-	if l < 20 {
-		return uuid.New()
-	}
-	return id
+	ctx.Respond(options)
+}
+
+// InternalServerError responds with HTTP status code 500-"Internal Server Error".
+// This function is the default service recovery handler.
+func InternalServerError(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 }
 
 // dispatch tries to connect the request to a resource handler. If it can't find
-// an appropiate handler it will return an HTTP error response.
+// an appropriate handler it will return an HTTP error response.
 func (svc *Service) dispatch(ctx *Context) {
-	handler, err := svc.router.FindHandler(ctx)
+	handler, err := svc.router.FindHandler(ctx.Request.Method, ctx.Request.URL.Path, &ctx.PathValues)
 	if err != nil {
 		ctx.Header().Set("Cache-Control", "max-age=300, stale-if-error=600")
 		if err == ErrRouteBadMethod { // 405-Method Not Allowed
@@ -159,12 +113,6 @@ func (svc *Service) dispatch(ctx *Context) {
 	handler(ctx)
 }
 
-// InternalServerError responds with HTTP status code 500-"Internal Server Error".
-// This function is the default service recovery handler.
-func InternalServerError(w http.ResponseWriter, r *http.Request) {
-	http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-}
-
 /*
 Adapter creates a new request context, sets default HTTP headers, creates the
 link-chain of service filters, then passes the request to content negotiation.
@@ -173,8 +121,8 @@ Also, it uses a recovery function for panics, that responds with HTTP status
 
 Info passed down by the adapter:
 
-	ctx.Info.Get("context.start_time")  // Time when request started, as string time.Time.
-	ctx.Info.Get("context.request_id")  // Unique or user-supplied request ID.
+	ctx.Get("request.start_time").(time.Time)  // Time when request started, as string time.Time.
+	ctx.Get("request.id").(string)             // Unique or user-supplied request ID.
 
 Returns an http.HandlerFunc function that can be used with http.Handle.
 */
@@ -183,7 +131,10 @@ func (svc *Service) Adapter() http.HandlerFunc {
 	for i := len(svc.filters) - 1; i >= 0; i-- {
 		handler = svc.filters[i].Run(handler)
 	}
-	handler = svc.Content(handler)
+	handler = svc.content(handler)
+
+	// parent context
+	parent := context.Background()
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
@@ -193,17 +144,17 @@ func (svc *Service) Adapter() http.HandlerFunc {
 			}
 		}()
 
-		when, ctx := time.Now(), NewContext(w, r)
-		defer ctx.Free()
+		ctx := newContext(parent, w, r)
+		defer ctx.free()
 
 		requestID := NewRequestID(r.Header.Get("Request-Id"))
-		ctx.Info.Set("context.start_time", when)
-		ctx.Info.Set("context.request_id", requestID)
+
+		ctx.Set("request.start_time", time.Now())
+		ctx.Set("request.id", requestID)
 
 		// set our default headers
-		ctx.Header().Set("Server", "Go-Relax/"+Version)
+		ctx.Header().Set("Server", serverVersion)
 		ctx.Header().Set("Request-Id", requestID)
-		ctx.Header().Add(LinkHeader(r.URL.Path, `rel="self"`))
 
 		handler(ctx)
 	}
@@ -229,9 +180,9 @@ It returns the path of the service and the Service.Adapter handler.
 
 	log.Fatal(http.ListenAndServe(":8000", nil))
 
-Using this function with http.Handle is recommended over using Service.Adapter
+Using this function with http.Handle is _recommended_ over using Service.Adapter
 directly. You benefit from the security options built-in to http.ServeMux; like
-restricting to specific hosts, clean paths and separate path matching.
+restricting to specific hosts, clean paths, and separate path matching.
 */
 func (svc *Service) Handler() (string, http.Handler) {
 	if svc.URI.Host != "" {
@@ -264,8 +215,8 @@ To add new filters, assign an object that implements the Filter interface.
 Filters are not replaced or updated, only appended to the service list.
 Examples:
 
-	myservice.Use(&FilterCORS{})
-	myservice.Use(&FilterSecurity{CacheDisable: true})
+	myservice.Use(&cors.Filter{})
+	myservice.Use(&security.Filter{CacheDisable: true})
 
 To add encoders, assign an object that implements the Encoder interface.
 Encoders will replace any matching existing encoder(s), and they will
@@ -299,6 +250,10 @@ Any entities that don't implement the required interfaces, will be ignored.
 func (svc *Service) Use(entities ...interface{}) *Service {
 	for _, e := range entities {
 		switch entity := e.(type) {
+		case LimitedFilter:
+			if !e.(LimitedFilter).RunIn(svc) {
+				svc.Logf("relax: Filter not usable for service: %T", entity)
+			}
 		case Encoder:
 			svc.encoders[entity.Accept()] = entity
 		case Filter:
@@ -343,6 +298,38 @@ func (svc *Service) Logger() Logger {
 // Uptime returns the service uptime in seconds.
 func (svc *Service) Uptime() int {
 	return int(time.Since(svc.uptime) / time.Second)
+}
+
+// Path returns the base path of this service.
+// absolute whether or not it should return an absolute URL.
+func (svc *Service) Path(absolute bool) string {
+	path := svc.URI.Path
+	if absolute {
+		path = svc.URI.String()
+	}
+	return path
+}
+
+// Root points to the root resource, the service itself -- a collection of resources.
+// This allows us to manipulate the service as a resource.
+//
+// Example:
+//
+//    // Create a new service mapped to "/v2"
+//    svc := relax.NewService("/v2")
+//
+//    // Route /v2/status/{level} to SystemStatus() via root
+//    svc.Root().GET("status/{word:level}", SystemStatus, &etag.Filter{})
+//
+// This is similar to:
+//
+//    svc.AddRoute("GET", "/v2/status/{level}", SystemStatus)
+//
+// Except that route-level filters can be used, without needing to meddle with
+// service filters (which are global).
+//
+func (svc *Service) Root() *Resource {
+	return svc.resources[0]
 }
 
 /*
@@ -397,7 +384,7 @@ If an existing path is specified, the last path is used. 'entities' is an
 optional value that contains a list of Filter, Encoder, Router objects that
 are assigned at the service-level; the same as Service.Use().
 
-	myservice := NewService("https://api.codehack.com/v1", &FilterETag{})
+	myservice := NewService("https://api.codehack.com/v1", &eTag.Filter{})
 
 This function will panic if it can't parse 'uri'.
 */
@@ -422,21 +409,32 @@ func NewService(uri string, entities ...interface{}) *Service {
 		encoders:  make(map[string]Encoder),
 		filters:   make([]Filter, 0),
 		resources: make([]*Resource, 0),
-		links:     make([]*Link, 0),
 		uptime:    time.Now(),
 		Recovery:  InternalServerError,
 	}
 
-	// Set the default encoder, EncoderJSON
-	svc.encoders["application/json"] = NewEncoderJSON()
+	// Make JSON the default encoder
+	svc.Use(NewEncoder())
+	// svc.encoders["application/json"] = NewEncoder()
 
-	// setup default service routes
-	svc.router.AddRoute("GET", u.Path, svc.rootHandler)
-	svc.router.AddRoute("OPTIONS", u.Path, svc.optionsHandler)
-
+	// Assign initial service entities
 	if entities != nil {
 		svc.Use(entities...)
 	}
+
+	// Setup the root resource
+	root := &Resource{
+		service:    svc,
+		name:       "_root",
+		path:       strings.TrimSuffix(u.Path, "/"),
+		collection: svc,
+	}
+
+	// Default service routes
+	root.Route("GET", "", svc.Index)
+	root.Route("OPTIONS", "", root.OptionsHandler)
+
+	svc.resources = append(svc.resources, root)
 
 	log.Printf("relax: New service %q", u.String())
 

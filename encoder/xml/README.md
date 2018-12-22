@@ -6,11 +6,11 @@ This package provides XML encoding for [Go-Relax](https://github.com/codehack/go
 
 Using "go get":
 
-	go get "github.com/codehack/go-relax/xmlenc"
+	go get "github.com/codehack/go-relax/encoder/xml"
 
 Then import from source:
 
-	import "github.com/codehack/go-relax/xmlenc"
+	import "github.com/codehack/go-relax/encoder/xml"
 
 ## Usage
 
@@ -21,7 +21,7 @@ package main
 
 import (
 	"github.com/codehack/go-relax"
-	"github.com/codehack/go-relax/xmlenc"
+	"github.com/codehack/go-relax/encoder/xml"
 	"net/http"
 )
 
@@ -29,7 +29,7 @@ func main() {
 	mysrv := relax.NewService("/api")
 
 	// create and configure new encoder object
-	enc := NewEncoderXML()
+	enc := xmlenc.NewEncoder()
 	enc.Indented = true
 
 	// assign it to service "mysrv".
@@ -37,15 +37,13 @@ func main() {
 	mysrv.Use(enc)
 
 	// done. now you can continue with your resource routes etc...
-
-	http.Handle(mysrv.Handler())
-	log.Fatal(http.ListenAndServe(":8000", nil))
+	mysrv.Run()
 }
 ```
 
 ### Options
 
-	encoder := &xmlenc.EncoderXML{Indented: true, MaxBodySize: 10000, AcceptHeader: "text/xml"}
+	encoder := &xmlenc.Encoder{Indented: true, MaxBodySize: 10000, AcceptHeader: "text/xml"}
 
 ``Indented``: boolean; set to true to encode indented XML. Default is **false**.
 

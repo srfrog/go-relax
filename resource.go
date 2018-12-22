@@ -1,4 +1,4 @@
-// Copyright 2014 Codehack.com All rights reserved.
+// Copyright 2014 Codehack http://codehack.com
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
@@ -32,8 +32,15 @@ type Resourcer interface {
 	Index(*Context)
 }
 
-// The CRUD interface is for Resourcer objects that provide create, read,
-// update and delete operations, also known as CRUD.
+// Optioner is implemented by Resourcer objects that want to provide their own
+// response to OPTIONS requests.
+type Optioner interface {
+	// Options may display details about the resource or how to access it.
+	Options(*Context)
+}
+
+// CRUD is an interface for Resourcer objects that provide create, read,
+// update, and delete operations; also known as CRUD.
 type CRUD interface {
 	// Create may allow the creation of new resource items via methods POST/PUT.
 	Create(*Context)
@@ -50,39 +57,18 @@ type CRUD interface {
 
 // Resource is an object that implements Resourcer; serves requests for a resource.
 type Resource struct {
-	router     Router      // router used to map routes to resource handlers
+	service    *Service    // service points to the service this resource belongs
 	name       string      // name of this resource, derived from collection
 	path       string      // path is the URI to this resource
 	collection interface{} // the object that implements Resourcer; a collection
+	links      []*Link     // links contains all the relation links
 	filters    []Filter    // list of resource-level filters
-	links      []*Link     // resource links
 }
 
-// getPath similar to Service.getPath, returns the path to this resource. If sub
-// is not empty, it appends to the resource path returned.
-func (r *Resource) getPath(sub string) string {
-	if strings.Contains(sub, r.path) {
-		return sub
-	}
-	path := r.path
-	if t := strings.Trim(sub, "/"); t != "" {
-		path += "/" + t
-	}
-	return path
-}
-
-// BUG(TODO): Complete PATCH support - http://tools.ietf.org/html/rfc5789, http://tools.ietf.org/html/rfc6902
-
-// optionsHandler responds to OPTION requests. It returns an Allow header listing
-// the methods allowed for this resource.
-func (r *Resource) optionsHandler(ctx *Context) {
-	methods := r.router.PathMethods(ctx.Request.URL.Path)
-	ctx.Header().Set("Allow", methods)
-	if strings.Contains(methods, "PATCH") {
-		// FIXME: this is wrong! perhaps we need Patch.ContentType() or even Service.encoders keys.
-		ctx.Header().Set("Accept-Patch", ctx.Info.Get("content.encoding"))
-	}
-	ctx.WriteHeader(http.StatusNoContent)
+// Path similar to Service.Path but returns the path to this resource.
+// absolute whether or not it should return an absolute URL.
+func (r *Resource) Path(absolute bool) string {
+	return r.service.Path(absolute) + strings.TrimPrefix(r.path[len(r.service.Path(false))-1:], "/")
 }
 
 // NotImplemented is a handler used to send a response when a resource route is
@@ -98,19 +84,25 @@ func (r *Resource) NotImplemented(ctx *Context) {
 //		// Route "PATCH /users/profile" => 405 Method Not Allowed
 //		users.PATCH("profile", users.MethodNotAllowed)
 func (r *Resource) MethodNotAllowed(ctx *Context) {
-	ctx.Header().Set("Allow", r.router.PathMethods(ctx.Request.URL.Path))
+	ctx.Header().Set("Allow", r.service.router.PathMethods(ctx.Request.URL.Path))
 	ctx.Error(http.StatusMethodNotAllowed, "The method "+ctx.Request.Method+" is not allowed.")
 }
 
-// relHandler is a resource filter that adds relations to the response.
-func (r *Resource) relHandler(next HandlerFunc) HandlerFunc {
-	return func(ctx *Context) {
-		// FIXME: better relations here. this is a naive implementation.
-		for _, link := range r.links {
-			ctx.Header().Add("Link", link.String())
-		}
-		next(ctx)
+// OptionsHandler responds to OPTION requests. It returns an Allow header listing
+// the methods allowed for an URI. If the URI is the Service's path then it returns information
+// about the service.
+func (r *Resource) OptionsHandler(ctx *Context) {
+	methods := r.service.router.PathMethods(ctx.Request.URL.Path)
+	ctx.Header().Set("Allow", methods)
+	if strings.Contains(methods, "PATCH") {
+		// FIXME: this is wrong! perhaps we need Patch.ContentType() or even Service.encoders keys.
+		ctx.Header().Set("Accept-Patch", ctx.Get("content.encoding").(string))
 	}
+	if options, ok := r.collection.(Optioner); ok {
+		options.Options(ctx)
+		return
+	}
+	ctx.WriteHeader(http.StatusNoContent)
 }
 
 /*
@@ -125,20 +117,29 @@ resource-level filters will run before route-level filters.
 Returns the resource itself for chaining.
 */
 func (r *Resource) Route(method, path string, h HandlerFunc, filters ...Filter) *Resource {
-	handler := r.relHandler(h)
-	if filters != nil {
-		for i := len(filters) - 1; i >= 0; i-- {
-			handler = filters[i].Run(handler)
-		}
-	}
-	if r.filters != nil {
-		for i := len(r.filters) - 1; i >= 0; i-- {
-			handler = r.filters[i].Run(handler)
-		}
-	}
-	r.router.AddRoute(strings.ToUpper(method), r.getPath(path), handler)
+	handler := r.relationHandler(h)
+
+	// route-specific filters
+	r.attachFilters(handler, filters...)
+
+	// inherited resource filters
+	r.attachFilters(handler, r.filters...)
+
+	r.service.router.AddRoute(strings.ToUpper(method), r.path+"/"+path, handler)
 
 	return r
+}
+
+func (r *Resource) attachFilters(h HandlerFunc, filters ...Filter) {
+	if filters == nil {
+		return
+	}
+	for i := len(filters) - 1; i >= 0; i-- {
+		if l, ok := filters[i].(LimitedFilter); ok && !l.RunIn(r.service.Router) {
+			continue
+		}
+		h = filters[i].Run(h)
+	}
 }
 
 // DELETE is a convenient alias to Route using DELETE as method
@@ -189,7 +190,8 @@ empty string "", then CRUD() will guess a value or use "{item}".
 	func (l *Jobs) Delete (ctx *Context) {}
 
 	// CRUD() will add routes handled using "{uint:ticketid}" as PSE.
-	myservice.Resource(&Jobs{}).CRUD("{uint:ticketid}")
+	jobs := &Jobs{}
+	myservice.Resource(jobs).CRUD("{uint:ticketid}")
 
 The following routes are added:
 
@@ -204,7 +206,7 @@ Specific uses of PUT/PATCH/DELETE are dependent on the application, so CRUD()
 won't make any assumptions for those.
 */
 func (r *Resource) CRUD(pse string) *Resource {
-	crud := r.collection.(CRUD)
+	coll := r.collection.(CRUD)
 
 	if pse == "" {
 		// use resource collection name
@@ -214,14 +216,14 @@ func (r *Resource) CRUD(pse string) *Resource {
 		}
 	}
 
-	r.Route("GET", pse, crud.Read)
-	r.Route("POST", "", crud.Create)
+	r.Route("GET", pse, coll.Read)
+	r.Route("POST", "", coll.Create)
 	r.Route("PUT", "", r.MethodNotAllowed)
-	r.Route("PUT", pse, crud.Update)
+	r.Route("PUT", pse, coll.Update)
 	r.Route("DELETE", "", r.MethodNotAllowed)
-	r.Route("DELETE", pse, crud.Delete)
+	r.Route("DELETE", pse, coll.Delete)
 
-	r.links = append(r.links, &Link{URI: r.getPath("{item}"), Rel: "edit"})
+	r.NewLink(&Link{URI: r.Path(true) + "/" + pse, Rel: "item"})
 
 	return r
 }
@@ -241,41 +243,56 @@ This function will panic if it can't determine the name of a collection
 through reflection.
 */
 func (svc *Service) Resource(collection Resourcer, filters ...Filter) *Resource {
-	// reflect name from object's type
+	if collection == nil {
+		panic("relax: Resource collection cannot be nil")
+	}
+
+	// check if the collection is the root resource
 	cs := fmt.Sprintf("%T", collection)
+	if cs == "*relax.Service" {
+		return svc.Root()
+	}
+
+	// reflect name from object's type
 	name := strings.ToLower(cs[strings.LastIndex(cs, ".")+1:])
 	if name == "" {
 		panic("relax: Resource naming failed: " + cs)
 	}
 
 	res := &Resource{
-		router:     svc.router,
+		service:    svc,
 		name:       name,
-		path:       svc.getPath(name, false),
+		path:       svc.Path(false) + name,
 		collection: collection,
-		filters:    nil,
 		links:      make([]*Link, 0),
+		filters:    nil,
 	}
 
 	// user-specified filters
 	if filters != nil {
-		res.filters = append(res.filters, filters...)
+		for i := range filters {
+			if l, ok := filters[i].(LimitedFilter); ok && !l.RunIn(res) {
+				svc.Logf("relax: Filter not usable for resource: %T", filters[i])
+				continue
+			}
+			res.filters = append(res.filters, filters[i])
+		}
 	}
 
 	// OPTIONS lists the methods allowed.
-	res.Route("OPTIONS", "", res.optionsHandler)
+	res.Route("OPTIONS", "", res.OptionsHandler)
 
 	// GET on the collection will access the Index handler
 	res.Route("GET", "", collection.Index)
 
 	// Relation: index -> resource.path
-	res.links = append(res.links, &Link{URI: svc.getPath(name, false), Rel: "index"})
+	res.NewLink(&Link{URI: res.Path(true), Rel: svc.Path(true) + "rel/" + name})
+
+	// Relation: resource -> service
+	res.NewLink(&Link{URI: res.Path(true), Rel: "collection"})
 
 	// update service resources list
 	svc.resources = append(svc.resources, res)
-
-	// Relation: resource -> service
-	svc.links = append(svc.links, &Link{URI: svc.getPath(name, true), Rel: svc.getPath("rel/"+name, true)})
 
 	return res
 }
