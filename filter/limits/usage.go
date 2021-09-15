@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/codehack/go-relax"
+	"github.com/srfrog/go-relax"
 )
 
 // Usage monitors request usage limits to the service, resource or to specific

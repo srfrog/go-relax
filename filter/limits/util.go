@@ -8,7 +8,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 
-	"github.com/codehack/go-relax"
+	"github.com/srfrog/go-relax"
 )
 
 // Min returns the smaller integer between a and b.

@@ -7,9 +7,9 @@
 package main
 
 import (
-	"github.com/Sirupsen/logrus"
-	"github.com/codehack/go-relax"
-	"github.com/codehack/go-relax/filter/logs"
+	"github.com/sirupsen/logrus"
+	"github.com/srfrog/go-relax"
+	"github.com/srfrog/go-relax/filter/logs"
 )
 
 // HelloIndex just says Hello <whatever>
