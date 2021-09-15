@@ -1,4 +1,4 @@
-# Go-Relax [![GoDoc](https://godoc.org/github.com/codehack/go-relax?status.svg)](https://godoc.org/github.com/codehack/go-relax) [![Go Report Card](https://goreportcard.com/badge/github.com/codehack/go-relax?svg=1)](https://goreportcard.com/report/github.com/codehack/go-relax)
+# Go-Relax [![GoDoc](https://pkg.go.dev/badge/github.com/srfrog/go-relax)](https://pkg.go.dev/github.com/srfrog/go-relax) [![Go Report Card](https://goreportcard.com/badge/github.com/srfrog/go-relax?svg=1)](https://goreportcard.com/report/github.com/srfrog/go-relax)
 
 *Build fast and complete RESTful APIs in [Go](http://golang.org)*
 
@@ -8,15 +8,15 @@
 
 Install using "go get":
 
-	go get github.com/codehack/go-relax
+	go get github.com/srfrog/go-relax
 
 Then import from your source:
 
-	import "github.com/codehack/go-relax"
+	import "github.com/srfrog/go-relax"
 
-View [example_test.go](https://github.com/codehack/go-relax/blob/master/example_test.go) for an extended example of basic usage and features.
+View [example_test.go](https://github.com/srfrog/go-relax/blob/master/example/example_test.go) for an extended example of basic usage and features.
 
-Also, check the [wiki](https://github.com/codehack/go-relax/wiki) for HowTo's and recipes.
+Also, check the [wiki](https://github.com/srfrog/go-relax/wiki) for HowTo's and recipes.
 
 ## Features
 
@@ -44,7 +44,6 @@ Also, check the [wiki](https://github.com/codehack/go-relax/wiki) for HowTo's an
 
 #### Upcoming filters
 
-- [ ] Relaxed - Test API's compliance with [Relax API Specification](https://github.com/codehack/relax-api) (based on REST).
 - [ ] JSON-API support.
 - [ ] JSON-Schema for validating requests and responses.
 - [ ] Collection-JSON support.
@@ -53,7 +52,7 @@ Also, check the [wiki](https://github.com/codehack/go-relax/wiki) for HowTo's an
 
 The full code documentation is located at GoDoc:
 
-[http://godoc.org/github.com/codehack/go-relax](http://godoc.org/github.com/codehack/go-relax)
+[https://pkg.go.dev/github.com/srfrog/go-relax](https://pkg.go.dev/github.com/srfrog/go-relax)
 
 The source code is thoroughly commented, have a look.
 
@@ -64,7 +63,7 @@ This minimal example creates a new Relax service that handles a Hello resource.
 package main
 
 import (
-   "github.com/codehack/go-relax"
+   "github.com/srfrog/go-relax"
 )
 
 type Hello string
@@ -101,4 +100,4 @@ Content-Length: 14
 ## Credits
 
 **Go-Relax** is Copyright (c) [Codehack](http://codehack.com).
-Published under an [MIT License](https://raw.githubusercontent.com/codehack/go-relax/master/LICENSE)
+Published under an [MIT License](https://raw.githubusercontent.com/srfrog/go-relax/master/LICENSE)
