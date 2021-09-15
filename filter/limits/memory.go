@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/codehack/go-relax"
+	"github.com/srfrog/go-relax"
 )
 
 // Global memstats, shared by all Filter objects.

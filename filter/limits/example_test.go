@@ -7,8 +7,8 @@ package limits_test
 import (
 	"time"
 
-	"github.com/codehack/go-relax"
-	"github.com/codehack/go-relax/filter/limits"
+	"github.com/srfrog/go-relax"
+	"github.com/srfrog/go-relax/filter/limits"
 )
 
 type Count int

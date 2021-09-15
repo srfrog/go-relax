@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/codehack/go-relax"
+	"github.com/srfrog/go-relax"
 )
 
 // Filter AuthBasic is a Filter that implements HTTP Basic Authentication as

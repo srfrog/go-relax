@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/codehack/go-relax"
+	"github.com/srfrog/go-relax"
 )
 
 // Filter ETag generates an entity-tag header "ETag" for body content of a response.
