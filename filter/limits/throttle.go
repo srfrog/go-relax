@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/codehack/go-relax"
+	"github.com/srfrog/go-relax"
 )
 
 // Throttle allows to limit the rate of requests to a resource per specific time duration.

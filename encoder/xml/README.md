@@ -1,16 +1,16 @@
 # xmlenc
 
-This package provides XML encoding for [Go-Relax](https://github.com/codehack/go-relax).
+This package provides XML encoding for [Go-Relax](https://github.com/srfrog/go-relax).
 
 ## Installation
 
 Using "go get":
 
-	go get "github.com/codehack/go-relax/encoder/xml"
+	go get "github.com/srfrog/go-relax/encoder/xml"
 
 Then import from source:
 
-	import "github.com/codehack/go-relax/encoder/xml"
+	import "github.com/srfrog/go-relax/encoder/xml"
 
 ## Usage
 
@@ -20,8 +20,8 @@ To accept and respond with xml, you must add an object to the Service.Encoders m
 package main
 
 import (
-	"github.com/codehack/go-relax"
-	"github.com/codehack/go-relax/encoder/xml"
+	"github.com/srfrog/go-relax"
+	"github.com/srfrog/go-relax/encoder/xml"
 	"net/http"
 )
 

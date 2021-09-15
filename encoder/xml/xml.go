@@ -8,7 +8,7 @@ import (
 	"encoding/xml"
 	"io"
 
-	"github.com/codehack/go-relax"
+	"github.com/srfrog/go-relax"
 )
 
 // EncoderXML implements the relax.Encoder interface. It encode/decodes XML.

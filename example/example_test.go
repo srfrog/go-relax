@@ -10,14 +10,14 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/codehack/go-relax"
-	"github.com/codehack/go-relax/filter/authbasic"
-	"github.com/codehack/go-relax/filter/cors"
-	"github.com/codehack/go-relax/filter/etag"
-	"github.com/codehack/go-relax/filter/gzip"
-	"github.com/codehack/go-relax/filter/logs"
-	"github.com/codehack/go-relax/filter/override"
-	"github.com/codehack/go-relax/filter/security"
+	"github.com/srfrog/go-relax"
+	"github.com/srfrog/go-relax/filter/authbasic"
+	"github.com/srfrog/go-relax/filter/cors"
+	"github.com/srfrog/go-relax/filter/etag"
+	"github.com/srfrog/go-relax/filter/gzip"
+	"github.com/srfrog/go-relax/filter/logs"
+	"github.com/srfrog/go-relax/filter/override"
+	"github.com/srfrog/go-relax/filter/security"
 )
 
 // User could be a struct mapping a DB table.

@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/codehack/go-relax"
-	"github.com/codehack/go-strarr"
+	"github.com/srfrog/go-relax"
+	"github.com/srfrog/go-strarr"
 )
 
 const defaultCORSMaxAge = 86400 // 24 hours

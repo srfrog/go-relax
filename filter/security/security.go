@@ -7,7 +7,7 @@ package security
 import (
 	"net/http"
 
-	"github.com/codehack/go-relax"
+	"github.com/srfrog/go-relax"
 )
 
 const (

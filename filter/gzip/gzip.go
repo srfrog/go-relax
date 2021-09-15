@@ -8,7 +8,7 @@ import (
 	"compress/gzip"
 	"strings"
 
-	"github.com/codehack/go-relax"
+	"github.com/srfrog/go-relax"
 )
 
 // Filter Gzip compresses the response with gzip encoding, if the client

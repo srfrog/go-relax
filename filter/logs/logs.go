@@ -8,7 +8,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/codehack/go-relax"
+	"github.com/srfrog/go-relax"
 )
 
 // Pre-made log formats. Most are based on Apache HTTP's.
