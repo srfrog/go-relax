@@ -1,7 +1,5 @@
 camlistore.org v0.0.0-20171230002226-a5a65f0d8b22 h1:VP9VuyosMHmS9zdzd5Co9TJKWPbMTfmtKc/XWctszyQ=
 camlistore.org v0.0.0-20171230002226-a5a65f0d8b22/go.mod h1:mzAP6ICVzPdfO0f3N9hAVWhO7qplHF7mbFhGsGdErTI=
-github.com/codehack/go-strarr v1.0.0 h1:L6DKn/bjetkBdnpbDA+0zai078/gQcRFVZpInfnfN90=
-github.com/codehack/go-strarr v1.0.0/go.mod h1:juAbRDiLuhU4fEyIIHqX/g+beXp4JnbTWKuGPrGmbF4=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/garyburd/redigo v1.6.2 h1:yE/pwKCrbLpLpQICzYTeZ7JsTA/C53wFTJHaEtRqniM=
@@ -12,8 +10,10 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/sirupsen/logrus v1.8.1 h1:dJKuHgqk1NNQlqoA6BTlM1Wf9DOH3NBjQyu0h9+AZZE=
 github.com/sirupsen/logrus v1.8.1/go.mod h1:yWOB1SBYBC5VeMP7gHvWumXLIWorT60ONWic61uBYv0=
-github.com/srfrog/go-strarr v1.0.0 h1:UYP9F2BkH8BfVoseDo/HiyVuxM63YOsLe7rxkMlD5lk=
-github.com/srfrog/go-strarr v1.0.0/go.mod h1:DcnEDS6bk1IGT/yzAS97+d7ZZQ5ugCtWuxyVxYczeME=
+github.com/srfrog/slices v1.0.1 h1:AfFmBRaTFK3YmIArR4q/cwhKI2seK+bbjJr/X+4mhmw=
+github.com/srfrog/slices v1.0.1/go.mod h1:5OuxzTo5jO70/qZx6BVixf9u7VKO86tAKVkQEi+zz4Q=
+github.com/srfrog/slices v1.1.0 h1:eE+c9NDtHBeedylB0p0mVnCgg13euW0kDK7IU8kWXLg=
+github.com/srfrog/slices v1.1.0/go.mod h1:5OuxzTo5jO70/qZx6BVixf9u7VKO86tAKVkQEi+zz4Q=
 github.com/stretchr/testify v1.2.2 h1:bSDNvY7ZPG5RlJ8otE/7V6gMiyenm9RtJ7IUVIAoJ1w=
 github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXfy6kDkUVs=
 golang.org/x/sys v0.0.0-20191026070338-33540a1f6037 h1:YyJpGZS1sBuBCzLAR1VEpK193GlqGZbnPFnPV/5Rsb4=

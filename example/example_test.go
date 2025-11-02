@@ -1,11 +1,9 @@
-// Copyright 2014 Codehack http://codehack.com
-// Use of this source code is governed by a MIT-style
-// license that can be found in the LICENSE file.
+// Copyright (c) 2025 srfrog - https://srfrog.dev
+// Use of this source code is governed by the license in the LICENSE file.
 
 package relax_test
 
 import (
-	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -127,11 +125,11 @@ func Example_basic() {
 
 	// Fill-in the users.People list with some scientists (this could be from DB table).
 	users.People = []*User{
-		&User{1, "Issac Newton", time.Date(1643, 1, 4, 0, 0, 0, 0, time.UTC)},
-		&User{2, "Albert Einstein", time.Date(1879, 3, 14, 0, 0, 0, 0, time.UTC)},
-		&User{3, "Nikola Tesla", time.Date(1856, 7, 10, 0, 0, 0, 0, time.UTC)},
-		&User{4, "Charles Darwin", time.Date(1809, 2, 12, 0, 0, 0, 0, time.UTC)},
-		&User{5, "Neils Bohr", time.Date(1885, 10, 7, 0, 0, 0, 0, time.UTC)},
+		{1, "Issac Newton", time.Date(1643, 1, 4, 0, 0, 0, 0, time.UTC)},
+		{2, "Albert Einstein", time.Date(1879, 3, 14, 0, 0, 0, 0, time.UTC)},
+		{3, "Nikola Tesla", time.Date(1856, 7, 10, 0, 0, 0, 0, time.UTC)},
+		{4, "Charles Darwin", time.Date(1809, 2, 12, 0, 0, 0, 0, time.UTC)},
+		{5, "Neils Bohr", time.Date(1885, 10, 7, 0, 0, 0, 0, time.UTC)},
 	}
 
 	// Create a service under "/v1". If using absolute URI, it will limit requests
@@ -200,6 +198,6 @@ func Example_basic() {
 	// Let http.ServeMux handle basic routing.
 	http.Handle(svc.Handler())
 
-	log.Fatal(http.ListenAndServe(":8000", nil))
+	// log.Fatal(http.ListenAndServe(":8000", nil))
 	// Output:
 }

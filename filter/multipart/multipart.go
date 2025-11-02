@@ -1,6 +1,5 @@
-// Copyright 2016 Codehack http://codehack.com
-// Use of this source code is governed by a MIT-style
-// license that can be found in the LICENSE file.
+// Copyright (c) 2025 srfrog - https://srfrog.dev
+// Use of this source code is governed by the license in the LICENSE file.
 
 package multipart
 
@@ -27,8 +26,7 @@ type Filter struct {
 
 // Run runs the filter and passes down the following Info:
 //
-//		ctx.Get("multipart.files") // list of files processed (*[]*FileHeader)
-//
+//	ctx.Get("multipart.files") // list of files processed (*[]*FileHeader)
 func (f *Filter) Run(next relax.HandlerFunc) relax.HandlerFunc {
 	if f.MaxMemory == 0 {
 		f.MaxMemory = DefaultMaxMemory

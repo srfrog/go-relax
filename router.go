@@ -1,6 +1,5 @@
-// Copyright 2014 Codehack http://codehack.com
-// Use of this source code is governed by a MIT-style
-// license that can be found in the LICENSE file.
+// Copyright (c) 2025 srfrog - https://srfrog.dev
+// Use of this source code is governed by the license in the LICENSE file.
 
 package relax
 
@@ -109,11 +108,12 @@ type trieRegexpRouter struct {
 // links are the contiguous path segments.
 //
 // For example, given the following route and handler:
-//		"GET /api/users/111" -> users.GetUser()
-//        - the path segment links are ["GET", "api", "users", "111"]
-//        - "GET" has depth=0 and "111" has depth=3
-//        - suppose "111" might be matched via regexp, then "users".numExp > 0
-//        - "111" segment will point to the handler users.GetUser()
+//
+//			"GET /api/users/111" -> users.GetUser()
+//	       - the path segment links are ["GET", "api", "users", "111"]
+//	       - "GET" has depth=0 and "111" has depth=3
+//	       - suppose "111" might be matched via regexp, then "users".numExp > 0
+//	       - "111" segment will point to the handler users.GetUser()
 type trieNode struct {
 	pseg    string
 	handler HandlerFunc

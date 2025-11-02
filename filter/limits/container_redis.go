@@ -1,6 +1,5 @@
-// Copyright 2014 Codehack http://codehack.com
-// Use of this source code is governed by a MIT-style
-// license that can be found in the LICENSE file.
+// Copyright (c) 2025 srfrog - https://srfrog.dev
+// Use of this source code is governed by the license in the LICENSE file.
 
 package limits
 
@@ -93,16 +92,18 @@ func (b *RedisBucket) fill(key string) int {
 // newRedisPool returns a new Redis connection pool.
 // It expects an absolute URI with the format:
 //
-// 	{network}://:{auth@}{host:port}/{index}
+//	{network}://:{auth@}{host:port}/{index}
 //
 // Where:
-// 	{network} is "tcp" or "udp" for network type.
+//
+//	{network} is "tcp" or "udp" for network type.
 //		{auth} is authentication password.
 //		{host:[port]} host address with optional port.
 //		{index} an optional database index
 //
 // Example:
-// 	tcp://:secret@company.com:1234/5
+//
+//	tcp://:secret@example.com:1234/5
 //
 // Defaults to port 6379 and index 0.
 func newRedisPool(uri string) *redis.Pool {
