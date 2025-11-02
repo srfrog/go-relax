@@ -1,6 +1,5 @@
-// Copyright 2014 Codehack http://codehack.com
-// Use of this source code is governed by a MIT-style
-// license that can be found in the LICENSE file.
+// Copyright (c) 2025 srfrog - https://srfrog.dev
+// Use of this source code is governed by the license in the LICENSE file.
 
 package authbasic
 
@@ -67,9 +66,8 @@ func getUserPass(header string) ([]string, error) {
 
 // Run runs the filter and passes down the following Info:
 //
-//		ctx.Get("auth.user") // auth user
-//		ctx.Get("auth.type") // auth scheme type. e.g., "basic"
-//
+//	ctx.Get("auth.user") // auth user
+//	ctx.Get("auth.type") // auth scheme type. e.g., "basic"
 func (f *Filter) Run(next relax.HandlerFunc) relax.HandlerFunc {
 	if f.Realm == "" {
 		f.Realm = "Authorization Required"

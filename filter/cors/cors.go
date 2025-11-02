@@ -1,6 +1,5 @@
-// Copyright 2014 Codehack http://codehack.com
-// Use of this source code is governed by a MIT-style
-// license that can be found in the LICENSE file.
+// Copyright (c) 2025 srfrog - https://srfrog.dev
+// Use of this source code is governed by the license in the LICENSE file.
 
 package cors
 
@@ -10,9 +9,10 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/srfrog/go-relax"
-	"github.com/srfrog/go-strarr"
+	"github.com/srfrog/slices"
 )
 
 const defaultCORSMaxAge = 86400 // 24 hours
@@ -31,8 +31,7 @@ var (
 	// exposeHeadersDefault are headers used regularly by both client/server
 	exposeHeadersDefault = []string{"Etag", "Link", "RateLimit-Limit", "RateLimit-Remaining", "RateLimit-Reset", "X-Poll-Interval"}
 
-	// allowOriginRegexp holds our pre-compiled origin regex patterns.
-	allowOriginRegexp = []*regexp.Regexp{}
+	// simple origin patterns are compiled per filter at runtime.
 )
 
 // Filter CORS implements the Cross-Origin Resource Sharing (CORS) recommendation, as
@@ -127,12 +126,12 @@ func (f *Filter) corsHeaders(origin string) http.Header {
 // XXX: handlePreflightRequest does not do preflight steps 9 & 10 checks because they are too strict.
 // XXX: It will skip steps 9 & 10, as per the recommendation.
 func (f *Filter) handlePreflightRequest(origin, rmethod, rheaders string) (http.Header, error) {
-	if !strarr.Contains(simpleMethods, rmethod) && !strarr.Contains(f.AllowMethods, rmethod) {
+	if !slices.Contains(simpleMethods, rmethod) && !slices.Contains(f.AllowMethods, rmethod) {
 		return nil, &relax.StatusError{Code: http.StatusMethodNotAllowed, Message: "Invalid method in preflight"}
 	}
 	if rheaders != "" {
-		arr := strarr.Map(strings.TrimSpace, strings.Split(rheaders, ","))
-		if len(strarr.Diff(arr, f.AllowHeaders)) == 0 {
+		arr := slices.Map(strings.TrimSpace, strings.Split(rheaders, ","))
+		if len(slices.Diff(arr, f.AllowHeaders)) == 0 {
 			return nil, &relax.StatusError{Code: http.StatusForbidden, Message: "Invalid header in preflight"}
 		}
 	}
@@ -160,8 +159,8 @@ func (f *Filter) handleSimpleRequest(origin string) http.Header {
 	return headers
 }
 
-func (f *Filter) isOriginAllowed(origin string) bool {
-	for _, re := range allowOriginRegexp {
+func isOriginAllowed(origin string, patterns []*regexp.Regexp) bool {
+	for _, re := range patterns {
 		if re.MatchString(origin) {
 			return true
 		}
@@ -171,37 +170,57 @@ func (f *Filter) isOriginAllowed(origin string) bool {
 
 // Run runs the filter and passes down the following Info:
 //
-//		ctx.Get("cors.request") // boolean, whether or not this was a CORS request.
-//		ctx.Get("cors.origin")  // Origin of the request, if it's a CORS request.
-//
+//	ctx.Get("cors.request") // boolean, whether or not this was a CORS request.
+//	ctx.Get("cors.origin")  // Origin of the request, if it's a CORS request.
 func (f *Filter) Run(next relax.HandlerFunc) relax.HandlerFunc {
-	if f.AllowMethods == nil {
-		f.AllowMethods = allowMethodsDefault
-	}
-	if f.AllowHeaders == nil {
-		f.AllowHeaders = allowHeadersDefault
-	}
-	if f.ExposeHeaders == nil {
-		f.ExposeHeaders = exposeHeadersDefault
-	}
-	if f.MaxAge == 0 {
-		f.MaxAge = defaultCORSMaxAge
-	}
-	f.AllowMethods = strarr.Map(strings.ToUpper, f.AllowMethods)
-	f.AllowHeaders = strarr.Map(http.CanonicalHeaderKey, f.AllowHeaders)
-	f.ExposeHeaders = strarr.Map(http.CanonicalHeaderKey,
-		strarr.Diff(f.ExposeHeaders, simpleHeaders))
+	var (
+		initOnce           sync.Once
+		originPatterns     []*regexp.Regexp
+		allowMethodsCache  []string
+		allowHeadersCache  []string
+		exposeHeadersCache []string
+		maxAgeValue        int
+	)
 
-	for _, v := range f.AllowOrigin {
-		str := regexp.QuoteMeta(strings.ToLower(v))
-		str = strings.Replace(str, `\+`, `.+`, -1)
-		str = strings.Replace(str, `\*`, `.*`, -1)
-		str = strings.Replace(str, `\?`, `.`, -1)
-		str = strings.Replace(str, `_`, `.?`, -1)
-		allowOriginRegexp = append(allowOriginRegexp, regexp.MustCompile(str))
+	initialize := func() {
+		if f.AllowMethods == nil {
+			f.AllowMethods = append([]string(nil), allowMethodsDefault...)
+		}
+		if f.AllowHeaders == nil {
+			f.AllowHeaders = append([]string(nil), allowHeadersDefault...)
+		}
+		if f.ExposeHeaders == nil {
+			f.ExposeHeaders = append([]string(nil), exposeHeadersDefault...)
+		}
+		if f.MaxAge == 0 {
+			f.MaxAge = defaultCORSMaxAge
+		}
+
+		allowMethodsCache = slices.Map(strings.ToUpper, f.AllowMethods)
+		allowHeadersCache = slices.Map(http.CanonicalHeaderKey, f.AllowHeaders)
+		exposeHeadersCache = slices.Map(http.CanonicalHeaderKey,
+			slices.Diff(f.ExposeHeaders, simpleHeaders))
+		maxAgeValue = f.MaxAge
+
+		originPatterns = make([]*regexp.Regexp, 0, len(f.AllowOrigin))
+		for _, v := range f.AllowOrigin {
+			str := regexp.QuoteMeta(strings.ToLower(v))
+			str = strings.Replace(str, `\+`, `.+`, -1)
+			str = strings.Replace(str, `\*`, `.*`, -1)
+			str = strings.Replace(str, `\?`, `.`, -1)
+			str = strings.Replace(str, `_`, `.?`, -1)
+			originPatterns = append(originPatterns, regexp.MustCompile(str))
+		}
+
+		f.AllowMethods = allowMethodsCache
+		f.AllowHeaders = allowHeadersCache
+		f.ExposeHeaders = exposeHeadersCache
+		f.MaxAge = maxAgeValue
 	}
 
 	return func(ctx *relax.Context) {
+		initOnce.Do(initialize)
+
 		origin := ctx.Request.Header.Get("Origin")
 
 		// ctx.Set("cors.request", false)
@@ -212,7 +231,7 @@ func (f *Filter) Run(next relax.HandlerFunc) relax.HandlerFunc {
 			return
 		}
 
-		if !f.AllowAnyOrigin && !f.isOriginAllowed(origin) {
+		if !f.AllowAnyOrigin && !isOriginAllowed(origin, originPatterns) {
 			if f.Strict {
 				ctx.Error(http.StatusForbidden, "Invalid CORS origin")
 				return

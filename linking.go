@@ -1,6 +1,5 @@
-// Copyright 2014 Codehack http://codehack.com
-// Use of this source code is governed by a MIT-style
-// license that can be found in the LICENSE file.
+// Copyright (c) 2025 srfrog - https://srfrog.dev
+// Use of this source code is governed by the license in the LICENSE file.
 
 package relax
 
@@ -22,10 +21,10 @@ Versioning: https://tools.ietf.org/html/rfc5829
 URI Template: http://tools.ietf.org/html/rfc6570
 Media: http://www.w3.org/TR/css3-mediaqueries/
 
-The field title* ``Titlex`` must be encoded as per RFC5987.
+The field title* “Titlex“ must be encoded as per RFC5987.
 See: http://greenbytes.de/tech/webdav/rfc5988.html#RFC5987
 
-Extension field ``Ext`` must be name lowercase and quoted-string value,
+Extension field “Ext“ must be name lowercase and quoted-string value,
 as needed.
 
 Example:
@@ -40,7 +39,6 @@ Example:
 		Media: "screen, print",
 		Type: "text/html;charset=utf-8",
 	}
-
 */
 type Link struct {
 	URI      string `json:"href"`

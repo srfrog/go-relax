@@ -1,6 +1,5 @@
-// Copyright 2014 Codehack http://codehack.com
-// Use of this source code is governed by a MIT-style
-// license that can be found in the LICENSE file.
+// Copyright (c) 2025 srfrog - https://srfrog.dev
+// Use of this source code is governed by the license in the LICENSE file.
 
 package relax
 
@@ -17,7 +16,7 @@ This allows some granularity to filters.
 Relax comes with filters that provide basic functionality needed by most REST API's.
 Some included filters: CORS, method override, security, basic auth and content negotiation.
 Adding filters is a matter of creating new objects that implement the Filter interface.
-The position of the ``next()`` handler function is important to the effect of the particular
+The position of the “next()“ handler function is important to the effect of the particular
 filter execution.
 */
 type Filter interface {
@@ -29,8 +28,8 @@ type Filter interface {
 
 /*
 LimitedFilter are filters that only can be used with a set of resources.
-Where resource is one of: ``Router`` (interface), ``*Resource`` and ``*Service``
-The ``RunIn()`` func should return true for the type(s) allowed, false otherwise.
+Where resource is one of: “Router“ (interface), “*Resource“ and “*Service“
+The “RunIn()“ func should return true for the type(s) allowed, false otherwise.
 
 	func (f *MyFilter) RunIn(r interface{}) bool {
 		switch r.(type) {
@@ -43,7 +42,6 @@ The ``RunIn()`` func should return true for the type(s) allowed, false otherwise
 		}
 		return false
 	}
-
 */
 type LimitedFilter interface {
 	RunIn(interface{}) bool

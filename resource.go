@@ -1,6 +1,5 @@
-// Copyright 2014 Codehack http://codehack.com
-// Use of this source code is governed by a MIT-style
-// license that can be found in the LICENSE file.
+// Copyright (c) 2025 srfrog - https://srfrog.dev
+// Use of this source code is governed by the license in the LICENSE file.
 
 package relax
 
@@ -24,7 +23,6 @@ is a namespace where all operations for that resource happen.
 
 	loc := &Locations{City: "Scottsdale", Country: "US"}
 	myresource := service.Resource(loc)
-
 */
 type Resourcer interface {
 	// Index may serve the entry GET request to a resource. Such as the listing
@@ -73,16 +71,18 @@ func (r *Resource) Path(absolute bool) string {
 
 // NotImplemented is a handler used to send a response when a resource route is
 // not yet implemented.
-//		// Route "GET /myresource/apikey" => 501 Not Implemented
-//		myresource.GET("apikey", myresource.NotImplemented)
+//
+//	// Route "GET /myresource/apikey" => 501 Not Implemented
+//	myresource.GET("apikey", myresource.NotImplemented)
 func (r *Resource) NotImplemented(ctx *Context) {
 	ctx.Error(http.StatusNotImplemented, "That route is not implemented.")
 }
 
 // MethodNotAllowed is a handler used to send a response when a method is not
 // allowed.
-//		// Route "PATCH /users/profile" => 405 Method Not Allowed
-//		users.PATCH("profile", users.MethodNotAllowed)
+//
+//	// Route "PATCH /users/profile" => 405 Method Not Allowed
+//	users.PATCH("profile", users.MethodNotAllowed)
 func (r *Resource) MethodNotAllowed(ctx *Context) {
 	ctx.Header().Set("Allow", r.service.router.PathMethods(ctx.Request.URL.Path))
 	ctx.Error(http.StatusMethodNotAllowed, "The method "+ctx.Request.Method+" is not allowed.")
@@ -120,19 +120,19 @@ func (r *Resource) Route(method, path string, h HandlerFunc, filters ...Filter) 
 	handler := r.relationHandler(h)
 
 	// route-specific filters
-	r.attachFilters(handler, filters...)
+	handler = r.attachFilters(handler, filters...)
 
 	// inherited resource filters
-	r.attachFilters(handler, r.filters...)
+	handler = r.attachFilters(handler, r.filters...)
 
 	r.service.router.AddRoute(strings.ToUpper(method), r.path+"/"+path, handler)
 
 	return r
 }
 
-func (r *Resource) attachFilters(h HandlerFunc, filters ...Filter) {
-	if filters == nil {
-		return
+func (r *Resource) attachFilters(h HandlerFunc, filters ...Filter) HandlerFunc {
+	if len(filters) == 0 {
+		return h
 	}
 	for i := len(filters) - 1; i >= 0; i-- {
 		if l, ok := filters[i].(LimitedFilter); ok && !l.RunIn(r.service.Router) {
@@ -140,6 +140,7 @@ func (r *Resource) attachFilters(h HandlerFunc, filters ...Filter) {
 		}
 		h = filters[i].Run(h)
 	}
+	return h
 }
 
 // DELETE is a convenient alias to Route using DELETE as method
@@ -269,7 +270,7 @@ func (svc *Service) Resource(collection Resourcer, filters ...Filter) *Resource 
 	}
 
 	// user-specified filters
-	if filters != nil {
+	if len(filters) > 0 {
 		for i := range filters {
 			if l, ok := filters[i].(LimitedFilter); ok && !l.RunIn(res) {
 				svc.Logf("relax: Filter not usable for resource: %T", filters[i])

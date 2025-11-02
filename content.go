@@ -1,6 +1,5 @@
-// Copyright 2014 Codehack http://codehack.com
-// Use of this source code is governed by a MIT-style
-// license that can be found in the LICENSE file.
+// Copyright (c) 2025 srfrog - https://srfrog.dev
+// Use of this source code is governed by the license in the LICENSE file.
 
 package relax
 
@@ -11,7 +10,7 @@ import (
 )
 
 const (
-	defaultMediatype = "application/vnd.codehack.relax"
+	defaultMediatype = "application/vnd.castlebytes.relax"
 
 	defaultVersion = "current"
 
@@ -65,7 +64,7 @@ See also, http://tools.ietf.org/html/rfc5646; tags to identify languages.
 */
 var Content struct {
 	// MediaType is the vendor extended media type used by this framework.
-	// Default: application/vnd.codehack.relax
+	// Default: application/vnd.castlebytes.relax
 	Mediatype string
 	// Version is the version used when no content version is requested.
 	// Default: current
