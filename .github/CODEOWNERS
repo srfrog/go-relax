@@ -1,0 +1,5 @@
+# CODEOWNERS: specify people or teams responsible for changes
+# Format: path  @username-or-team
+# Use @srfrog as default owner for reviews. Adjust as needed.
+
+* @srfrog

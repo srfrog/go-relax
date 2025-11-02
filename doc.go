@@ -1,12 +1,11 @@
-// Copyright 2014 Codehack http://codehack.com
-// Use of this source code is governed by a MIT-style
-// license that can be found in the LICENSE file.
+// Copyright (c) 2025 srfrog - https://srfrog.dev
+// Use of this source code is governed by the license in the LICENSE file.
 
 /*
 Package relax is a framework of pluggable components to build RESTful API's. It
-provides a thin layer over ``net/http`` to serve resources, without imposing a rigid
-structure. It is meant to be used along ``http.ServeMux``, but will work as a replacement
-as it implements ``http.Handler``.
+provides a thin layer over “net/http“ to serve resources, without imposing a rigid
+structure. It is meant to be used along “http.ServeMux“, but will work as a replacement
+as it implements “http.Handler“.
 
 The framework is divided into components: Encoding, Filters, Routing, Hypermedia
 and, Resources. These are the parts of a complete REST Service. All the components

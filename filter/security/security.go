@@ -1,6 +1,5 @@
-// Copyright 2014 Codehack http://codehack.com
-// Use of this source code is governed by a MIT-style
-// license that can be found in the LICENSE file.
+// Copyright (c) 2025 srfrog - https://srfrog.dev
+// Use of this source code is governed by the license in the LICENSE file.
 
 package security
 
@@ -14,7 +13,6 @@ const (
 	securityUACheckErr    = "Request forbidden by security rules.\nPlease make sure your request has an User-Agent header."
 	securityXFrameDefault = "SAMEORIGIN"
 	securityHSTSDefault   = "max-age=31536000; includeSubDomains"
-	securityCacheDefault  = "no-store, must-revalidate"
 	securityPragmaDefault = "no-cache"
 )
 
@@ -46,7 +44,7 @@ type Filter struct {
 	//		"DENY"                // no rendering within a frame
 	//		"SAMEORIGIN"          // no rendering if origin mismatch
 	//		"ALLOW-FROM {origin}" // allow rendering if framed by frame loaded from {origin};
-	//			              // where {origin} is a top-level URL. ie., http//codehack.com
+	//			              // where {origin} is a top-level URL. ie., http//castlebytes.com
 	// Only one value can be used at a time.
 	// Defaults to "SAMEORIGIN"
 	XFrameOptions string
@@ -78,9 +76,8 @@ type Filter struct {
 	// Defaults to false.
 	CacheDisable bool
 
-	// CacheOptions are the value sent in an Cache-Control header.
-	// For details, see http://tools.ietf.org/html/rfc7234#section-5.2
-	// Defaults to "no-store, must-revalidate"
+	// CacheOptions are the value sent in an Cache-Control header. Leave empty to avoid
+	// overriding existing cache policy. For details, see http://tools.ietf.org/html/rfc7234#section-5.2
 	CacheOptions string
 
 	// PragmaDisable if false and CacheDisable is false, will send a Pragma header
@@ -100,9 +97,6 @@ func (f *Filter) Run(next relax.HandlerFunc) relax.HandlerFunc {
 	}
 	if f.HSTSOptions == "" {
 		f.HSTSOptions = securityHSTSDefault
-	}
-	if f.CacheOptions == "" {
-		f.CacheOptions = securityCacheDefault
 	}
 	return func(ctx *relax.Context) {
 		if !f.UACheckDisable {
@@ -126,10 +120,10 @@ func (f *Filter) Run(next relax.HandlerFunc) relax.HandlerFunc {
 			ctx.Header().Set("Strict-Transport-Security", f.HSTSOptions)
 		}
 
-		if !f.CacheDisable {
+		if !f.CacheDisable && f.CacheOptions != "" {
 			ctx.Header().Set("Cache-Control", f.CacheOptions)
 			if !f.PragmaDisable {
-				ctx.Header().Set("Pragma", "no-cache")
+				ctx.Header().Set("Pragma", securityPragmaDefault)
 			}
 		}
 

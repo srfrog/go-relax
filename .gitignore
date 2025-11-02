@@ -11,3 +11,4 @@ _*
 vendor/*
 !vendor/vendor.json
 
+.vscode

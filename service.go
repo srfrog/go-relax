@@ -1,6 +1,5 @@
-// Copyright 2014 Codehack http://codehack.com
-// Use of this source code is governed by a MIT-style
-// license that can be found in the LICENSE file.
+// Copyright (c) 2025 srfrog - https://srfrog.dev
+// Use of this source code is governed by the license in the LICENSE file.
 
 package relax
 
@@ -10,14 +9,12 @@ import (
 	"net/url"
 	"strings"
 	"time"
-
-	"context"
 )
 
 // serverVersion is used with the Server HTTP header.
 const serverVersion = "Go-Relax/" + Version
 
-// Logger interface is based on Go's ``log`` package. Objects that implement
+// Logger interface is based on Go's “log“ package. Objects that implement
 // this interface can provide logging to Relax resources.
 type Logger interface {
 	Print(...interface{})
@@ -28,7 +25,7 @@ type Logger interface {
 // Service contains all the information about the service and resources handled.
 // Specifically, the routing, encoding and service filters.
 // Additionally, a Service is a collection of resources making it a resource by itself.
-// Therefore, it implements the Resourcer interface. See: ``Service.Root``
+// Therefore, it implements the Resourcer interface. See: “Service.Root“
 type Service struct {
 	// URI is the full reference URI to the service.
 	URI *url.URL
@@ -50,7 +47,7 @@ type Service struct {
 }
 
 // Logf prints an log entry to logger if set, or stdlog if nil.
-// Based on the unexported function logf() in ``net/http``.
+// Based on the unexported function logf() in “net/http“.
 func (svc *Service) Logf(format string, args ...interface{}) {
 	if svc.logger == nil {
 		log.Printf(format, args...)
@@ -133,9 +130,6 @@ func (svc *Service) Adapter() http.HandlerFunc {
 	}
 	handler = svc.content(handler)
 
-	// parent context
-	parent := context.Background()
-
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if err := recover(); err != nil {
@@ -144,7 +138,7 @@ func (svc *Service) Adapter() http.HandlerFunc {
 			}
 		}()
 
-		ctx := newContext(parent, w, r)
+		ctx := newContext(r.Context(), w, r)
 		defer ctx.free()
 
 		requestID := NewRequestID(r.Header.Get("Request-Id"))
@@ -165,12 +159,12 @@ Handler is a function that returns the values needed by http.Handle
 to handle a path. This allows Relax services to work along http.ServeMux.
 It returns the path of the service and the Service.Adapter handler.
 
-	// restrict requests to host "api.codehack.com"
-	myAPI := relax.NewService("http://api.codehack.com/v1")
+	// restrict requests to host "api.castlebytes.com"
+	myAPI := relax.NewService("http://api.castlebytes.com/v1")
 
 	// ... your resources might go here ...
 
-	// maps "api.codehack.com/v1" in http.ServeMux
+	// maps "api.castlebytes.com/v1" in http.ServeMux
 	http.Handle(myAPI.Handler())
 
 	// map other resources independently
@@ -315,19 +309,18 @@ func (svc *Service) Path(absolute bool) string {
 //
 // Example:
 //
-//    // Create a new service mapped to "/v2"
-//    svc := relax.NewService("/v2")
+//	// Create a new service mapped to "/v2"
+//	svc := relax.NewService("/v2")
 //
-//    // Route /v2/status/{level} to SystemStatus() via root
-//    svc.Root().GET("status/{word:level}", SystemStatus, &etag.Filter{})
+//	// Route /v2/status/{level} to SystemStatus() via root
+//	svc.Root().GET("status/{word:level}", SystemStatus, &etag.Filter{})
 //
 // This is similar to:
 //
-//    svc.AddRoute("GET", "/v2/status/{level}", SystemStatus)
+//	svc.AddRoute("GET", "/v2/status/{level}", SystemStatus)
 //
 // Except that route-level filters can be used, without needing to meddle with
 // service filters (which are global).
-//
 func (svc *Service) Root() *Resource {
 	return svc.resources[0]
 }
@@ -339,19 +332,21 @@ If 'args' is not nil, it expects in order: address (host:port),
 certificate file and key file for TLS.
 
 Run() is equivalent to:
+
 	http.Handle(svc.Handler())
 	http.ListenAndServe(":8000", nil)
 
 Run(":3000") is equivalent to:
+
 	...
 	http.ListenAndServe(":3000", nil)
 
 Run("10.1.1.100:10443", "tls/cert.pem", "tls/key.pem") is eq. to:
+
 	...
 	http.ListenAndServeTLS("10.1.1.100:10443", "tls/cert.pem", "tls/key.pem", nil)
 
 If the key file is missing, TLS is not used.
-
 */
 func (svc *Service) Run(args ...string) {
 	var err error
@@ -384,7 +379,7 @@ If an existing path is specified, the last path is used. 'entities' is an
 optional value that contains a list of Filter, Encoder, Router objects that
 are assigned at the service-level; the same as Service.Use().
 
-	myservice := NewService("https://api.codehack.com/v1", &eTag.Filter{})
+	myservice := NewService("https://api.castlebytes.com/v1", &eTag.Filter{})
 
 This function will panic if it can't parse 'uri'.
 */

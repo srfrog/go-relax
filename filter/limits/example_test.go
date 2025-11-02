@@ -1,6 +1,5 @@
-// Copyright 2014 Codehack http://codehack.com
-// Use of this source code is governed by a MIT-style
-// license that can be found in the LICENSE file.
+// Copyright (c) 2025 srfrog - https://srfrog.dev
+// Use of this source code is governed by the license in the LICENSE file.
 
 package limits_test
 
@@ -40,6 +39,6 @@ func Example_basic() {
 	})
 
 	svc.Resource(&c)
-	svc.Run()
+	// svc.Run()
 	// Output:
 }

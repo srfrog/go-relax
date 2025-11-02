@@ -1,6 +1,5 @@
-// Copyright 2014 Codehack http://codehack.com
-// Use of this source code is governed by a MIT-style
-// license that can be found in the LICENSE file.
+// Copyright (c) 2025 srfrog - https://srfrog.dev
+// Use of this source code is governed by the license in the LICENSE file.
 
 package logs
 
@@ -37,7 +36,6 @@ log format similar to the one used for Apache HTTP CustomLog directive.
 
 	// Context-specific format verbs (see Context.Format)
 	log.Panicf("Status is %s = bad status!", ctx)
-
 */
 type Filter struct {
 	// Logger is an interface that is based on Go's log package. Any logging

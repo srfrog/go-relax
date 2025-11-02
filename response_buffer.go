@@ -1,6 +1,5 @@
-// Copyright 2014 Codehack http://codehack.com
-// Use of this source code is governed by a MIT-style
-// license that can be found in the LICENSE file.
+// Copyright (c) 2025 srfrog - https://srfrog.dev
+// Use of this source code is governed by the license in the LICENSE file.
 
 package relax
 
@@ -48,7 +47,7 @@ func (rb *ResponseBuffer) WriteHeader(code int) {
 }
 
 // Status returns the last known status code saved. If no status has been set,
-// it returns http.StatusOK which is the default in ``net/http``.
+// it returns http.StatusOK which is the default in “net/http“.
 func (rb *ResponseBuffer) Status() int {
 	if rb.wroteHeader {
 		return rb.status
@@ -95,7 +94,7 @@ var responseBufferPool = sync.Pool{
 }
 
 // NewResponseBuffer returns a ResponseBuffer object initialized with the headers
-// of 'w', an object that implements ``http.ResponseWriter``.
+// of 'w', an object that implements “http.ResponseWriter“.
 // Objects returned using this function are pooled to save resources.
 // See also: ResponseBuffer.Free
 func NewResponseBuffer(w http.ResponseWriter) *ResponseBuffer {
@@ -108,7 +107,7 @@ func NewResponseBuffer(w http.ResponseWriter) *ResponseBuffer {
 }
 
 // Free frees a ResponseBuffer object returning it back to the usage pool.
-// Use with ``defer`` after calling NewResponseBuffer if WriteTo or Flush
+// Use with “defer“ after calling NewResponseBuffer if WriteTo or Flush
 // arent used. The values of the ResponseBuffer are reset and must be
 // re-initialized.
 func (rb *ResponseBuffer) Free() {

@@ -74,13 +74,13 @@ func (h *Hello) Index(ctx *relax.Context) {
 
 func main() {
    h := Hello("hello world!")
-   svc := relax.NewService("http://api.company.com/")
+   svc := relax.NewService("http://api.example.com/")
    svc.Resource(&h)
    svc.Run()
 }
 ```
 
-**$ curl -i -X GET http://api.company.com/hello**
+**$ curl -i -X GET http://api.example.com/hello**
 
 Response:
 
@@ -99,5 +99,5 @@ Content-Length: 14
 
 ## Credits
 
-**Go-Relax** is Copyright (c) [Codehack](http://codehack.com).
+**Go-Relax** is Copyright (c) [CastleBytes](http://castlebytes.com).
 Published under an [MIT License](https://raw.githubusercontent.com/srfrog/go-relax/master/LICENSE)
